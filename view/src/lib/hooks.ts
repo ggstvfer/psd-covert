@@ -1,4 +1,43 @@
 // Mock implementations until backend is fully set up
+
+export interface ConversionResult {
+  success: boolean;
+  html: string;
+  css: string;
+  components: any[];
+  metadata: {
+    framework: string;
+    responsive: boolean;
+    semantic: boolean;
+    generatedAt: string;
+  };
+  error?: string;
+}
+
+export interface ValidationResult {
+  success: boolean;
+  similarity: number;
+  differences: number;
+  totalPixels: number;
+  passed: boolean;
+  issues: string[];
+  recommendations: string[];
+  diffImageUrl?: string;
+  validationDate: string;
+  threshold: number;
+  error?: string;
+}
+
+export interface ImprovementResult {
+  success: boolean;
+  improvedHtml: string;
+  improvedCss: string;
+  improvements: string[];
+  confidence: number;
+  iteration: number;
+  error?: string;
+}
+
 const mockClient = {
   GET_USER: () => Promise.resolve({ user: { id: "1", name: "User", email: "user@example.com", avatar: null } }),
   LIST_TODOS: () => Promise.resolve({ todos: [] }),
@@ -55,6 +94,38 @@ const mockClient = {
     success: true,
     previewUrl: `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent.replace('</head>', `<style>${cssContent}</style></head>`))}`,
     previewHtml: htmlContent.replace('</head>', `<style>${cssContent}</style></head>`)
+  }),
+  VISUAL_VALIDATION: (psdData: any, htmlContent: string, cssContent: string, threshold: number = 0.95) => Promise.resolve({
+    success: true,
+    similarity: 0.87,
+    differences: 1250,
+    totalPixels: 1920 * 1080,
+    passed: false,
+    issues: [
+      "Layout spacing slightly off",
+      "Font rendering differences",
+      "Color slight variations"
+    ],
+    recommendations: [
+      "Adjust margin calculations",
+      "Use exact font matching",
+      "Fine-tune color conversion"
+    ],
+    diffImageUrl: `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==`,
+    validationDate: new Date().toISOString(),
+    threshold
+  }),
+  SELF_REINFORCE: (validationResults: any, originalPsdData: any, currentHtml: string, currentCss: string, iteration: number = 1) => Promise.resolve({
+    success: true,
+    improvedHtml: currentHtml.replace(/position: absolute;/g, 'position: absolute; box-sizing: border-box;'),
+    improvedCss: currentCss.replace(/}/g, '  transform: translateZ(0);\n}'),
+    improvements: [
+      "Enhanced pixel-perfect positioning algorithm",
+      "Improved sub-pixel rendering precision",
+      "Advanced color space conversion"
+    ],
+    confidence: Math.min(0.87 + (iteration * 0.05), 0.98),
+    iteration: iteration + 1
   })
 };
 import {
@@ -169,17 +240,27 @@ export interface PSDData {
   metadata: any;
 }
 
-export interface ConversionResult {
+export interface ValidationResult {
   success: boolean;
-  html: string;
-  css: string;
-  components: any[];
-  metadata: {
-    framework: string;
-    responsive: boolean;
-    semantic: boolean;
-    generatedAt: string;
-  };
+  similarity: number;
+  differences: number;
+  totalPixels: number;
+  passed: boolean;
+  issues: string[];
+  recommendations: string[];
+  diffImageUrl?: string;
+  validationDate: string;
+  threshold: number;
+  error?: string;
+}
+
+export interface ImprovementResult {
+  success: boolean;
+  improvedHtml: string;
+  improvedCss: string;
+  improvements: string[];
+  confidence: number;
+  iteration: number;
   error?: string;
 }
 
@@ -223,6 +304,48 @@ export const useGeneratePreview = () => {
         toast.success("Preview generated successfully!");
       } else {
         toast.error("Failed to generate preview");
+      }
+    },
+  });
+};
+
+// Visual validation hooks
+export const useVisualValidation = () => {
+  return useMutation({
+    mutationFn: ({ psdData, htmlContent, cssContent, threshold = 0.95 }: {
+      psdData: PSDData;
+      htmlContent: string;
+      cssContent: string;
+      threshold?: number;
+    }) => mockClient.VISUAL_VALIDATION(psdData, htmlContent, cssContent, threshold),
+    onSuccess: (data: ValidationResult) => {
+      if (data.success) {
+        if (data.passed) {
+          toast.success(`Validation passed! Similarity: ${(data.similarity * 100).toFixed(1)}%`);
+        } else {
+          toast.warning(`Validation failed. Similarity: ${(data.similarity * 100).toFixed(1)}%`);
+        }
+      } else {
+        toast.error(data.error || "Validation failed");
+      }
+    },
+  });
+};
+
+export const useSelfReinforce = () => {
+  return useMutation({
+    mutationFn: ({ validationResults, originalPsdData, currentHtml, currentCss, iteration = 1 }: {
+      validationResults: ValidationResult;
+      originalPsdData: PSDData;
+      currentHtml: string;
+      currentCss: string;
+      iteration?: number;
+    }) => mockClient.SELF_REINFORCE(validationResults, originalPsdData, currentHtml, currentCss, iteration),
+    onSuccess: (data: ImprovementResult) => {
+      if (data.success) {
+        toast.success(`Quality improved! Confidence: ${(data.confidence * 100).toFixed(1)}%`);
+      } else {
+        toast.error(data.error || "Improvement failed");
       }
     },
   });

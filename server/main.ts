@@ -10,6 +10,7 @@ import { type Env as DecoEnv, StateSchema } from "./deco.gen.ts";
 import { workflows } from "./workflows/index.ts";
 import { createPsdParserTool, createPsdUploadTool } from "./tools/psdParser.ts";
 import { createPsdToHtmlTool, createHtmlPreviewTool } from "./tools/psdConverter.ts";
+import { createVisualValidationTool, createSelfReinforceTool } from "./tools/psdValidator.ts";
 import { views } from "./views.ts";
 
 /**
@@ -52,7 +53,9 @@ const runtime = withRuntime<Env, typeof StateSchema>({
     createPsdParserTool,
     createPsdUploadTool,
     createPsdToHtmlTool,
-    createHtmlPreviewTool
+    createHtmlPreviewTool,
+    createVisualValidationTool,
+    createSelfReinforceTool
   ],
   fetch: fallbackToView("/"),
 });

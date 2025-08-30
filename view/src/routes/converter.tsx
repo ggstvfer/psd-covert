@@ -6,15 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type ConversionResult } from "@/lib/hooks";
-
-interface ValidationResult {
-  similarity: number;
-  differences: number;
-  passed: boolean;
-  issues: string[];
-  recommendations: string[];
-}
+import { type ConversionResult, type ValidationResult, useVisualValidation, useSelfReinforce } from "@/lib/hooks";
 
 function PSDConverterPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -125,8 +117,10 @@ function PSDConverterPage() {
 
       // Mock validation
       const mockValidation: ValidationResult = {
+        success: true,
         similarity: 0.87,
         differences: 1250,
+        totalPixels: 1920 * 1080,
         passed: false,
         issues: [
           'Layout spacing slightly off',
@@ -137,7 +131,9 @@ function PSDConverterPage() {
           'Adjust margin calculations',
           'Use exact font matching',
           'Fine-tune color conversion'
-        ]
+        ],
+        validationDate: new Date().toISOString(),
+        threshold: 0.95
       };
 
       setValidationResult(mockValidation);
@@ -339,43 +335,119 @@ function PSDConverterPage() {
                   <TabsContent value="validation" className="space-y-4">
                     {validationResult && (
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          {validationResult.passed ? (
-                            <CheckCircle className="w-5 h-5 text-green-400" />
-                          ) : (
-                            <AlertCircle className="w-5 h-5 text-yellow-400" />
-                          )}
-                          <span className="text-white font-medium">
-                            Similaridade: {(validationResult.similarity * 100).toFixed(1)}%
-                          </span>
-                          <Badge variant={validationResult.passed ? "default" : "secondary"}>
-                            {validationResult.passed ? "Aprovado" : "Precisa Melhorar"}
+                        {/* Validation Summary */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-slate-700 p-4 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              {validationResult.passed ? (
+                                <CheckCircle className="w-5 h-5 text-green-400" />
+                              ) : (
+                                <AlertCircle className="w-5 h-5 text-yellow-400" />
+                              )}
+                              <span className="text-white font-medium">Similaridade</span>
+                            </div>
+                            <p className="text-2xl font-bold text-white">
+                              {(validationResult.similarity * 100).toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              Threshold: {(validationResult.threshold * 100).toFixed(1)}%
+                            </p>
+                          </div>
+
+                          <div className="bg-slate-700 p-4 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertCircle className="w-5 h-5 text-blue-400" />
+                              <span className="text-white font-medium">Diferenças</span>
+                            </div>
+                            <p className="text-2xl font-bold text-white">
+                              {validationResult.differences.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              de {validationResult.totalPixels.toLocaleString()} pixels
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="flex items-center justify-between">
+                          <Badge
+                            variant={validationResult.passed ? "default" : "secondary"}
+                            className="text-sm"
+                          >
+                            {validationResult.passed ? "✅ Validação Aprovada" : "⚠️ Precisa Melhorar"}
                           </Badge>
+
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-500"
+                            disabled={!conversionResult}
+                          >
+                            🚀 Auto-Melhorar
+                          </Button>
                         </div>
 
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-white">Problemas Identificados</h4>
-                          <ul className="space-y-1">
-                            {validationResult.issues.map((issue, index) => (
-                              <li key={index} className="text-sm text-slate-300 flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                                {issue}
-                              </li>
-                            ))}
-                          </ul>
+                        {/* Issues and Recommendations */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-yellow-400" />
+                              Problemas Identificados ({validationResult.issues.length})
+                            </h4>
+                            <div className="bg-slate-700 p-3 rounded-lg max-h-32 overflow-y-auto">
+                              {validationResult.issues.length > 0 ? (
+                                <ul className="space-y-1">
+                                  {validationResult.issues.map((issue, index) => (
+                                    <li key={index} className="text-sm text-slate-300 flex items-start gap-2">
+                                      <span className="text-yellow-400 mt-1">•</span>
+                                      {issue}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-slate-400">Nenhum problema identificado</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-400" />
+                              Recomendações ({validationResult.recommendations.length})
+                            </h4>
+                            <div className="bg-slate-700 p-3 rounded-lg max-h-32 overflow-y-auto">
+                              {validationResult.recommendations.length > 0 ? (
+                                <ul className="space-y-1">
+                                  {validationResult.recommendations.map((rec, index) => (
+                                    <li key={index} className="text-sm text-slate-300 flex items-start gap-2">
+                                      <span className="text-green-400 mt-1">•</span>
+                                      {rec}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-slate-400">Nenhuma recomendação disponível</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-white">Recomendações</h4>
-                          <ul className="space-y-1">
-                            {validationResult.recommendations.map((rec, index) => (
-                              <li key={index} className="text-sm text-slate-300 flex items-center gap-2">
-                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                                {rec}
-                              </li>
-                            ))}
-                          </ul>
+                        {/* Validation Date */}
+                        <div className="text-xs text-slate-500 text-right">
+                          Validado em: {new Date(validationResult.validationDate).toLocaleString('pt-BR')}
                         </div>
+                      </div>
+                    )}
+
+                    {!validationResult && conversionResult && (
+                      <div className="text-center py-8">
+                        <AlertCircle className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                        <p className="text-slate-400 mb-2">Validação não executada</p>
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-500"
+                        >
+                          Executar Validação Visual
+                        </Button>
                       </div>
                     )}
                   </TabsContent>
