@@ -1,5 +1,5 @@
 import { createRoute, type RootRoute } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Upload, FileImage, Loader, CheckCircle, AlertCircle, Eye, Download, Code, Palette, Smartphone, Globe, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ interface FrameworkOption {
   color: string;
 }
 
+// Move frameworkOptions outside component to avoid recreation on each render
 const frameworkOptions: FrameworkOption[] = [
   {
     id: 'vanilla',
@@ -62,7 +63,7 @@ function PSDConverterPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.name.toLowerCase().endsWith('.psd')) {
       setSelectedFile(file);
@@ -72,7 +73,7 @@ function PSDConverterPage() {
     } else {
       alert('Por favor, selecione um arquivo PSD válido.');
     }
-  };
+  }, []);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -82,7 +83,7 @@ function PSDConverterPage() {
     event.preventDefault();
   };
 
-  const handleDrop = (event: React.DragEvent) => {
+  const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
 
     const files = event.dataTransfer.files;
@@ -97,9 +98,9 @@ function PSDConverterPage() {
         alert('Por favor, solte um arquivo PSD válido.');
       }
     }
-  };
+  }, []);
 
-  const handleConvert = async () => {
+  const handleConvert = useCallback(async () => {
     setIsConverting(true);
     setConversionProgress(0);
 
@@ -202,9 +203,9 @@ function PSDConverterPage() {
     } finally {
       setIsConverting(false);
     }
-  };
+  }, [selectedFile, selectedFramework, responsive, semantic, accessibility]);
 
-  const handleDownload = (type: 'html' | 'css') => {
+  const handleDownload = useCallback((type: 'html' | 'css') => {
     if (!conversionResult) return;
 
     const content = type === 'html' ? conversionResult.html : conversionResult.css;
@@ -217,7 +218,7 @@ function PSDConverterPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }, [conversionResult]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">

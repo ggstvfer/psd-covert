@@ -46,6 +46,9 @@ const fallbackToView = (viewPath: string = "/") => (req: Request, env: Env) => {
 const handleApiRoutes = async (req: Request, env: Env) => {
   const url = new URL(req.url);
 
+  // Common headers
+  const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
   // Parse PSD API
   if (url.pathname === '/api/parse-psd' && req.method === 'POST') {
     try {
@@ -54,12 +57,14 @@ const handleApiRoutes = async (req: Request, env: Env) => {
 
       const parserTool = createPsdParserTool(env);
       const result = await parserTool.execute({
-        filePath,
-        includeImageData
+        input: {
+          filePath,
+          includeImageData
+        }
       } as any);
 
       return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     } catch (error) {
       return new Response(JSON.stringify({
@@ -67,7 +72,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         error: error instanceof Error ? error.message : 'Unknown error'
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     }
   }
@@ -80,15 +85,17 @@ const handleApiRoutes = async (req: Request, env: Env) => {
 
       const converterTool = createPsdToHtmlTool(env);
       const result = await converterTool.execute({
-        psdData,
-        targetFramework,
-        responsive,
-        semantic,
-        accessibility
+        input: {
+          psdData,
+          targetFramework,
+          responsive,
+          semantic,
+          accessibility
+        }
       } as any);
 
       return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     } catch (error) {
       return new Response(JSON.stringify({
@@ -96,7 +103,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         error: error instanceof Error ? error.message : 'Unknown error'
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     }
   }
@@ -109,15 +116,17 @@ const handleApiRoutes = async (req: Request, env: Env) => {
 
       const validatorTool = createVisualValidationTool(env);
       const result = await validatorTool.execute({
-        psdData,
-        htmlContent,
-        cssContent,
-        threshold,
-        includeDiffImage: true
+        input: {
+          psdData,
+          htmlContent,
+          cssContent,
+          threshold,
+          includeDiffImage: true
+        }
       } as any);
 
       return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     } catch (error) {
       return new Response(JSON.stringify({
@@ -125,7 +134,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         error: error instanceof Error ? error.message : 'Unknown error'
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     }
   }
@@ -138,15 +147,17 @@ const handleApiRoutes = async (req: Request, env: Env) => {
 
       const reinforceTool = createSelfReinforceTool(env);
       const result = await reinforceTool.execute({
-        validationResults,
-        originalPsdData,
-        currentHtml,
-        currentCss,
-        iteration
+        input: {
+          validationResults,
+          originalPsdData,
+          currentHtml,
+          currentCss,
+          iteration
+        }
       } as any);
 
       return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     } catch (error) {
       return new Response(JSON.stringify({
@@ -154,7 +165,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         error: error instanceof Error ? error.message : 'Unknown error'
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     }
   }
@@ -167,12 +178,14 @@ const handleApiRoutes = async (req: Request, env: Env) => {
 
       const previewTool = createHtmlPreviewTool(env);
       const result = await previewTool.execute({
-        htmlContent,
-        cssContent
+        input: {
+          htmlContent,
+          cssContent
+        }
       } as any);
 
       return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     } catch (error) {
       return new Response(JSON.stringify({
@@ -180,7 +193,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         error: error instanceof Error ? error.message : 'Unknown error'
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: JSON_HEADERS
       });
     }
   }
