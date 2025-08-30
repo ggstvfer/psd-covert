@@ -1,6 +1,6 @@
 import { createClient } from "@deco/workers-runtime/client";
-import type { Env } from "../../../server/deco.gen.ts";
+import type { Env } from "../../../server/main.ts";
 
-type SelfMCP = Env["SELF"];
+type SelfMCP = Env;
 
 export const client = createClient<SelfMCP>();

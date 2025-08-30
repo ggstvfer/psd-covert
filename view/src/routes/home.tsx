@@ -1,214 +1,91 @@
 ﻿import { createRoute, type RootRoute } from "@tanstack/react-router";
-import { CheckCircle, Circle, Loader, Sparkles, Trash2, FileImage } from "lucide-react";
+import { FileImage, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import {
-  useDeleteTodo,
-  useGenerateTodoWithAI,
-  useListTodos,
-  useOptionalUser,
-  useToggleTodo,
-} from "@/lib/hooks";
-import LoggedProvider from "@/components/logged-provider";
 import { Button } from "@/components/ui/button";
-import { UserButton } from "@/components/user-button";
-
-function PublicTodoList() {
-  const { data: todos } = useListTodos();
-  const toggleTodo = useToggleTodo();
-  const deleteTodo = useDeleteTodo();
-
-  const handleToggle = (todoId: number) => {
-    toggleTodo.mutate(todoId);
-  };
-
-  const handleDelete = (e: React.MouseEvent, todoId: number) => {    
-    e.stopPropagation(); // Prevent triggering the toggle
-    deleteTodo.mutate(todoId);
-  };
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-medium text-white">TODOs (Public)</h2>  
-      {todos?.todos && todos.todos.length > 0
-        ? (
-          <div className="space-y-2">
-            {todos.todos.slice(0, 3).map((todo) => (
-              <div
-                key={todo.id}
-                className="group relative bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center gap-3 hover:bg-slate-700 transition-colors"                                                                  >
-                <button
-                  onClick={() => handleToggle(todo.id)}
-                  disabled={toggleTodo.isPending || deleteTodo.isPending}                                                                                   className="flex-1 flex items-center gap-3 disabled:cursor-not-allowed text-left"                                                        >
-                  <div className="flex-shrink-0">
-                    {toggleTodo.isPending && toggleTodo.variables === todo.id                                                                                   ? (
-                        <Loader className="w-4 h-4 text-slate-400 animate-spin" />                                                                              )
-                      : todo.completed
-                      ? <CheckCircle className="w-4 h-4 text-slate-400" />                                                                                      : <Circle className="w-4 h-4 text-slate-500" />
-}                                                                                      </div>
-                  <span
-                    className={`flex-1 text-sm ${
-                      todo.completed
-                        ? "text-slate-400 line-through"
-                        : "text-slate-200"
-                    }`}
-                  >
-                    {todo.title}
-                  </span>
-                </button>
-
-                {/* Delete button - only visible on hover */}        
-                <button
-                  onClick={(e) => handleDelete(e, todo.id)}
-                  disabled={deleteTodo.isPending || toggleTodo.isPending}                                                                                   className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-slate-600 rounded disabled:cursor-not-allowed flex-shrink-0"                                                         title="Delete todo"
-                >
-                  {deleteTodo.isPending && deleteTodo.variables === todo.id                                                                                   ? <Loader className="w-3 h-3 text-slate-400 animate-spin" />                                                                              : (
-                      <Trash2 className="w-3 h-3 text-slate-400 hover:text-red-400 transition-colors" />                                                      )}
-                </button>
-              </div>
-            ))}
-            {todos.todos.length > 3 && (
-              <p className="text-xs text-slate-500 text-center">     
-                +{todos.todos.length - 3} more
-              </p>
-            )}
-          </div>
-        )
-        : (
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">                                                           <p className="text-sm text-slate-400">No todos yet</p>   
-          </div>
-        )}
-    </div>
-  );
-}
-
-function LoggedInContent() {
-  const generateTodo = useGenerateTodoWithAI();
-
-  const handleGenerateTodo = () => {
-    generateTodo.mutate();
-  };
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-medium text-slate-400">
-        This content only shows up for authenticated users
-      </h2>
-      <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">                                                           <h3 className="text-sm font-medium text-white mb-2">
-          Authenticated Content
-        </h3>
-        <p className="text-xs text-slate-400 mb-4">
-          This content is only visible when logged in.
-        </p>
-
-        {/* Generate TODO Button - Eye-catching */}
-        <div className="mb-4">
-          <Button
-            onClick={handleGenerateTodo}
-            disabled={generateTodo.isPending}
-            size="sm"
-            className="bg-blue-600 text-white hover:bg-blue-500 border-blue-500 shadow-lg hover:shadow-xl transition-all duration-200 font-medium"                                                                       >
-            {generateTodo.isPending
-              ? (
-                <>
-                  <Loader className="w-3 h-3 animate-spin mr-2" />   
-                  Generating...
-                </>
-              )
-              : (
-                <>
-                  <Sparkles className="w-3 h-3 mr-2" />
-                  Generate TODO with AI
-                </>
-              )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PublicFallback() {
-  return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-medium text-slate-400">
-        The content below is only visible for authenticated users    
-      </h2>
-      <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">                                                           <h3 className="text-sm font-medium text-white mb-2">Login Required</h3>                                                                   <p className="text-xs text-slate-400 mb-3">
-          Sign in to access authenticated features.
-        </p>
-        <UserButton />
-      </div>
-    </div>
-  );
-}
 
 function HomePage() {
-  const user = useOptionalUser();
-
   return (
-    <div className="bg-slate-900 min-h-screen flex items-center justify-center p-6">                                                            <div className="max-w-4xl mx-auto w-full">
+    <div className="bg-slate-900 min-h-screen flex items-center justify-center p-6">
+      <div className="max-w-4xl mx-auto w-full text-center">
         {/* Header */}
-        <div className="flex items-center justify-between mb-12">    
-          <div className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="Deco"
-              className="w-8 h-8 object-contain"
-            />
+        <div className="mb-12">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <FileImage className="w-12 h-12 text-blue-400" />
             <div>
-              <h1 className="text-xl font-semibold text-white">      
-                Deco MCP Template
+              <h1 className="text-3xl font-bold text-white">
+                PSD to HTML Converter
               </h1>
-              <p className="text-sm text-slate-400">
-                React + Tailwind + Authentication
+              <p className="text-lg text-slate-400">
+                Converta arquivos Photoshop em HTML/CSS com IA
               </p>
             </div>
           </div>
-
-          <UserButton />
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid md:grid-cols-2 gap-8 min-h-[400px]">    
-          {/* Left Column - Public Content */}
-          <div>
-            <PublicTodoList />
-          </div>
-
-          {/* Right Column - Auth Content */}
-          <div>
-            {user.data
-              ? (
-                <LoggedProvider>
-                  <LoggedInContent />
-                </LoggedProvider>
-              )
-              : <PublicFallback />}
-          </div>
-        </div>
-
-        {/* PSD Converter CTA */}
-        <div className="mt-12 pt-6 border-t border-slate-700">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-center">
-            <FileImage className="w-12 h-12 text-white mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2">
-              PSD to HTML Converter
-            </h3>
-            <p className="text-blue-100 mb-4">
-              Converta arquivos Photoshop em HTML/CSS com IA avançada
+        {/* Main CTA */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 shadow-2xl">
+          <div className="max-w-2xl mx-auto">
+            <FileImage className="w-16 h-16 text-white mx-auto mb-6" />
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Transforme seus designs em código
+            </h2>
+            <p className="text-blue-100 mb-8 text-lg">
+              Faça upload de um arquivo PSD e obtenha HTML/CSS otimizado automaticamente.
+              Suporte completo a layouts responsivos, componentes reutilizáveis e validação visual.
             </p>
-            <Link to="/converter">
-              <Button className="bg-white text-blue-600 hover:bg-blue-50 font-medium">
-                Começar Conversão
-              </Button>
-            </Link>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/converter">
+                <Button
+                  size="lg"
+                  className="bg-white text-blue-600 hover:bg-blue-50 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <FileImage className="w-5 h-5 mr-2" />
+                  Começar Conversão
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Features */}
+        <div className="mt-12 grid md:grid-cols-3 gap-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
+            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+              <FileImage className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Upload Simples</h3>
+            <p className="text-slate-400 text-sm">
+              Arraste e solte ou selecione seu arquivo PSD diretamente no navegador
+            </p>
+          </div>
+
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
+            <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+              <ArrowRight className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Conversão Automática</h3>
+            <p className="text-slate-400 text-sm">
+              IA avançada converte camadas, estilos e layouts em HTML/CSS limpo
+            </p>
+          </div>
+
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
+            <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+              <ArrowRight className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Código Otimizado</h3>
+            <p className="text-slate-400 text-sm">
+              HTML semântico, CSS responsivo e componentes reutilizáveis
+            </p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-8 pt-6 border-t border-slate-700">       
+        <div className="mt-12 pt-6 border-t border-slate-700">
           <p className="text-xs text-slate-500 text-center">
-            Template includes: Tools, Workflows, Authentication, Database (SQLite + Drizzle)
+            Powered by Deco.chat • Cloudflare Workers • React + TypeScript
           </p>
         </div>
       </div>

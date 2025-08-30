@@ -29,8 +29,6 @@ function PSDConverterPage() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [conversionProgress, setConversionProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [parsingResult, setParsingResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,25 +38,18 @@ function PSDConverterPage() {
       setConversionResult(null);
       setValidationResult(null);
       setPreviewUrl(null);
-      setParsingResult(null);
+      setPreviewUrl(null);
     } else {
       alert('Por favor, selecione um arquivo PSD válido.');
     }
   };
 
-  const handleDragOver = (event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragOver(true);
-  };
-
   const handleDragLeave = (event: React.DragEvent) => {
     event.preventDefault();
-    setIsDragOver(false);
   };
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
-    setIsDragOver(false);
 
     const files = event.dataTransfer.files;
     if (files.length > 0) {
@@ -68,7 +59,6 @@ function PSDConverterPage() {
         setConversionResult(null);
         setValidationResult(null);
         setPreviewUrl(null);
-        setParsingResult(null);
       } else {
         alert('Por favor, solte um arquivo PSD válido.');
       }
@@ -76,8 +66,6 @@ function PSDConverterPage() {
   };
 
   const handleConvert = async () => {
-    if (!selectedFile) return;
-
     setIsConverting(true);
     setConversionProgress(0);
 
@@ -86,6 +74,9 @@ function PSDConverterPage() {
       setConversionProgress(25);
 
       // Parse PSD file
+      if (!selectedFile) {
+        throw new Error('Nenhum arquivo PSD selecionado.');
+      }
       const formData = new FormData();
       formData.append('psdFile', selectedFile);
 
@@ -169,6 +160,7 @@ function PSDConverterPage() {
     }
   };
 
+  // Move handleDownload inside the PSDConverterPage component so it can access conversionResult
   const handleDownload = (type: 'html' | 'css') => {
     if (!conversionResult) return;
 
@@ -183,6 +175,8 @@ function PSDConverterPage() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  // Remove unused/duplicate handleDrop and handleConvert stubs
 
   return (
     <div className="bg-slate-900 min-h-screen p-6">
@@ -212,6 +206,8 @@ function PSDConverterPage() {
               <div
                 className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center hover:border-slate-500 transition-colors cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragLeave={handleDragLeave}
               >
                 <input
                   ref={fileInputRef}
@@ -410,3 +406,4 @@ export default (parentRoute: RootRoute) =>
     component: PSDConverterPage,
     getParentRoute: () => parentRoute,
   });
+

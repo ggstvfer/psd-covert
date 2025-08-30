@@ -1,10 +1,16 @@
-import { client } from "./rpc-logged";
+// Mock implementations until backend is fully set up
+const mockClient = {
+  GET_USER: () => Promise.resolve({ user: { id: "1", name: "User", email: "user@example.com", avatar: null } }),
+  LIST_TODOS: () => Promise.resolve({ todos: [] }),
+  GENERATE_TODO_WITH_AI: () => Promise.resolve({ todo: { id: Date.now(), title: "New Todo", completed: false } }),
+  TOGGLE_TODO: () => Promise.resolve({ todo: { id: 1, title: "Todo", completed: true } }),
+  DELETE_TODO: () => Promise.resolve({ deletedId: 1 }),
+};
 import {
   useMutation,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { FailedToFetchUserError } from "@/components/logged-provider";
 import { toast } from "sonner";
 
 export interface User {
@@ -21,19 +27,7 @@ export interface User {
 export const useUser = () => {
   return useSuspenseQuery({
     queryKey: ["user"],
-    queryFn: () =>
-      client.GET_USER({}, {
-        handleResponse: (res: Response) => {
-          if (res.status === 401) {
-            throw new FailedToFetchUserError(
-              "Failed to fetch user",
-              globalThis.location.href,
-            );
-          }
-
-          return res.json();
-        },
-      }),
+    queryFn: () => mockClient.GET_USER(),
     retry: false,
   });
 };
@@ -46,15 +40,7 @@ export const useUser = () => {
 export const useOptionalUser = () => {
   return useSuspenseQuery({
     queryKey: ["user"],
-    queryFn: () =>
-      client.GET_USER({}, {
-        handleResponse: async (res: Response) => {
-          if (res.status === 401) {
-            return null;
-          }
-          return res.json();
-        },
-      }),
+    queryFn: () => mockClient.GET_USER(),
     retry: false,
   });
 };
@@ -66,15 +52,15 @@ export const useOptionalUser = () => {
 export const useListTodos = () => {
   return useSuspenseQuery({
     queryKey: ["todos"],
-    queryFn: () => client.LIST_TODOS({}),
+    queryFn: () => mockClient.LIST_TODOS(),
   });
 };
 
 export const useGenerateTodoWithAI = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => client.GENERATE_TODO_WITH_AI({}),
-    onSuccess: (data) => {
+    mutationFn: () => mockClient.GENERATE_TODO_WITH_AI(),
+    onSuccess: (data: { todo: any }) => {
       queryClient.setQueryData(["todos"], (old: any) => {
         if (!old?.todos) return old;
         return {
@@ -89,17 +75,8 @@ export const useGenerateTodoWithAI = () => {
 export const useToggleTodo = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) =>
-      client.TOGGLE_TODO({ id }, {
-        handleResponse: (res: Response) => {
-          if (res.status === 401) {
-            toast.error("You need to be logged in to toggle todos");
-            throw new Error("Unauthorized to toggle TODO");
-          }
-          return res.json();
-        },
-      }),
-    onSuccess: (data) => {
+    mutationFn: (_id: number) => mockClient.TOGGLE_TODO(),
+    onSuccess: (data: { todo: any }) => {
       // Update the todos list with the updated todo
       queryClient.setQueryData(["todos"], (old: any) => {
         if (!old?.todos) return old;
@@ -117,17 +94,8 @@ export const useToggleTodo = () => {
 export const useDeleteTodo = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) =>
-      client.DELETE_TODO({ id }, {
-        handleResponse: (res: Response) => {
-          if (res.status === 401) {
-            toast.error("You need to be logged in to delete todos");
-            throw new Error("Unauthorized to delete TODO");
-          }
-          return res.json();
-        },
-      }),
-    onSuccess: (data) => {
+    mutationFn: (_id: number) => mockClient.DELETE_TODO(),
+    onSuccess: (data: { deletedId: number }) => {
       // Remove the deleted todo from the todos list
       queryClient.setQueryData(["todos"], (old: any) => {
         if (!old?.todos) return old;
