@@ -9,6 +9,7 @@ export interface ConversionResult {
     framework: string;
     responsive: boolean;
     semantic: boolean;
+    accessibility: boolean;
     generatedAt: string;
   };
   error?: string;
@@ -87,6 +88,7 @@ const mockClient = {
       framework: targetFramework,
       responsive: true,
       semantic: true,
+      accessibility: true,
       generatedAt: new Date().toISOString()
     }
   }),
@@ -95,7 +97,7 @@ const mockClient = {
     previewUrl: `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent.replace('</head>', `<style>${cssContent}</style></head>`))}`,
     previewHtml: htmlContent.replace('</head>', `<style>${cssContent}</style></head>`)
   }),
-  VISUAL_VALIDATION: (psdData: any, htmlContent: string, cssContent: string, threshold: number = 0.95) => Promise.resolve({
+  VISUAL_VALIDATION: (_psdData: any, _htmlContent: string, _cssContent: string, threshold: number = 0.95) => Promise.resolve({
     success: true,
     similarity: 0.87,
     differences: 1250,
@@ -115,7 +117,7 @@ const mockClient = {
     validationDate: new Date().toISOString(),
     threshold
   }),
-  SELF_REINFORCE: (validationResults: any, originalPsdData: any, currentHtml: string, currentCss: string, iteration: number = 1) => Promise.resolve({
+  SELF_REINFORCE: (_validationResults: any, _originalPsdData: any, currentHtml: string, currentCss: string, iteration: number = 1) => Promise.resolve({
     success: true,
     improvedHtml: currentHtml.replace(/position: absolute;/g, 'position: absolute; box-sizing: border-box;'),
     improvedCss: currentCss.replace(/}/g, '  transform: translateZ(0);\n}'),

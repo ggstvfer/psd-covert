@@ -15,6 +15,7 @@ declare module '@/lib/hooks' {
       framework: string;
       responsive: boolean;
       semantic: boolean;
+      accessibility: boolean;
       generatedAt: string;
     };
     error?: string;

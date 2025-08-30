@@ -1,15 +1,60 @@
 ﻿import { createRoute, type RootRoute } from "@tanstack/react-router";
 import { useState, useRef } from "react";
-import { Upload, FileImage, Loader, CheckCircle, AlertCircle, Eye, Download } from "lucide-react";
+import { Upload, FileImage, Loader, CheckCircle, AlertCircle, Eye, Download, Code, Palette, Smartphone, Globe, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type ConversionResult, type ValidationResult, useVisualValidation, useSelfReinforce } from "@/lib/hooks";
+import { type ConversionResult, type ValidationResult } from "@/lib/hooks";
+
+type Framework = 'vanilla' | 'react' | 'vue' | 'angular';
+
+interface FrameworkOption {
+  id: Framework;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+}
+
+const frameworkOptions: FrameworkOption[] = [
+  {
+    id: 'vanilla',
+    name: 'Vanilla HTML/CSS',
+    description: 'HTML5 puro com CSS moderno',
+    icon: <Globe className="w-5 h-5" />,
+    color: 'bg-orange-500'
+  },
+  {
+    id: 'react',
+    name: 'React',
+    description: 'Componentes funcionais com JSX',
+    icon: <Code className="w-5 h-5" />,
+    color: 'bg-blue-500'
+  },
+  {
+    id: 'vue',
+    name: 'Vue.js',
+    description: 'Single File Components',
+    icon: <Palette className="w-5 h-5" />,
+    color: 'bg-green-500'
+  },
+  {
+    id: 'angular',
+    name: 'Angular',
+    description: 'Componentes TypeScript',
+    icon: <Smartphone className="w-5 h-5" />,
+    color: 'bg-red-500'
+  }
+];
 
 function PSDConverterPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFramework, setSelectedFramework] = useState<Framework>('vanilla');
+  const [responsive, setResponsive] = useState(true);
+  const [semantic, setSemantic] = useState(true);
+  const [accessibility, setAccessibility] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -70,10 +115,90 @@ function PSDConverterPage() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       setConversionProgress(50);
 
-      // Mock conversion result
-      const mockResult: ConversionResult = {
-        success: true,
-        html: `<!DOCTYPE html>
+      // Mock conversion result based on selected framework
+      const getFrameworkContent = () => {
+        switch (selectedFramework) {
+          case 'react':
+            return {
+              html: `import React from 'react';
+import './PSDComponent.css';
+
+const PSDComponent = () => {
+  return (
+    <div className="psd-converted">
+      <div className="psd-div-comp-0">
+        <p className="psd-text-comp-1">Texto do PSD</p>
+      </div>
+      <button className="psd-button-comp-2">Botão do PSD</button>
+    </div>
+  );
+};
+
+export default PSDComponent;`,
+              css: `.psd-converted { position: relative; width: 100%; margin: 0 auto; }
+.psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+.psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }`
+            };
+          case 'vue':
+            return {
+              html: `<template>
+  <div class="psd-converted">
+    <div class="psd-div-comp-0">
+      <p class="psd-text-comp-1">Texto do PSD</p>
+    </div>
+    <button class="psd-button-comp-2">Botão do PSD</button>
+  </div>
+</template>
+
+<script setup lang="ts">
+// Vue component logic here
+</script>
+
+<style scoped>
+.psd-converted { position: relative; width: 100%; margin: 0 auto; }
+.psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+.psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+</style>`,
+              css: `.psd-converted { position: relative; width: 100%; margin: 0 auto; }
+.psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+.psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }`
+            };
+          case 'angular':
+            return {
+              html: `import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-psd-component',
+  standalone: true,
+  template: \`
+    <div class="psd-converted">
+      <div class="psd-div-comp-0">
+        <p className="psd-text-comp-1">Texto do PSD</p>
+      </div>
+      <button className="psd-button-comp-2">Botão do PSD</button>
+    </div>
+  \`,
+  styles: [\`
+    .psd-converted { position: relative; width: 100%; margin: 0 auto; }
+    .psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+    .psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+    .psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  \`]
+})
+export class PSDComponent {
+  // Component logic here
+}`,
+              css: `.psd-converted { position: relative; width: 100%; margin: 0 auto; }
+.psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+.psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }`
+            };
+          default: // vanilla
+            return {
+              html: `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -95,19 +220,30 @@ function PSDConverterPage() {
   </div>
 </body>
 </html>`,
-        css: `.psd-converted { position: relative; width: 100%; margin: 0 auto; }
+              css: `.psd-converted { position: relative; width: 100%; margin: 0 auto; }
 .psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
 .psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
-.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }`,
+.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }`
+            };
+        }
+      };
+
+      const frameworkContent = getFrameworkContent();
+
+      const mockResult: ConversionResult = {
+        success: true,
+        html: frameworkContent.html,
+        css: frameworkContent.css,
         components: [
           { id: 'comp-0', type: 'div', name: 'Background', position: { left: 50, top: 50 } },
           { id: 'comp-1', type: 'text', name: 'Title', position: { left: 80, top: 70 } },
           { id: 'comp-2', type: 'button', name: 'CTA Button', position: { left: 100, top: 150 } }
         ],
         metadata: {
-          framework: 'vanilla',
-          responsive: true,
-          semantic: true,
+          framework: selectedFramework,
+          responsive,
+          semantic,
+          accessibility,
           generatedAt: new Date().toISOString()
         }
       };
@@ -183,6 +319,114 @@ function PSDConverterPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
+          {/* Framework Selector */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Code className="w-5 h-5" />
+                Framework de Saída
+              </CardTitle>
+              <CardDescription>
+                Escolha a tecnologia para gerar o código
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3">
+                {frameworkOptions.map((framework) => (
+                  <button
+                    key={framework.id}
+                    onClick={() => setSelectedFramework(framework.id)}
+                    className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                      selectedFramework === framework.id
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-lg ${framework.color} text-white`}>
+                        {framework.icon}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-white">{framework.name}</h3>
+                        <p className="text-sm text-slate-400">{framework.description}</p>
+                      </div>
+                    </div>
+                    {selectedFramework === framework.id && (
+                      <div className="flex items-center gap-2 text-blue-400">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm">Selecionado</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Advanced Settings */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Configurações Avançadas
+              </CardTitle>
+              <CardDescription>
+                Personalize as opções de geração de código
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Responsivo</h4>
+                    <p className="text-sm text-slate-400">Media queries automáticas</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={responsive}
+                      onChange={(e) => setResponsive(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Semântico</h4>
+                    <p className="text-sm text-slate-400">HTML semântico</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={semantic}
+                      onChange={(e) => setSemantic(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Acessibilidade</h4>
+                    <p className="text-sm text-slate-400">Atributos ARIA</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={accessibility}
+                      onChange={(e) => setAccessibility(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Upload Section */}
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
@@ -260,7 +504,14 @@ function PSDConverterPage() {
           {/* Results Section */}
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
-              <CardTitle className="text-white">Resultado da Conversão</CardTitle>
+              <CardTitle className="text-white flex items-center gap-2">
+                Resultado da Conversão
+                {conversionResult && (
+                  <Badge variant="secondary" className="ml-2">
+                    {frameworkOptions.find(f => f.id === conversionResult.metadata.framework)?.name || 'Vanilla HTML/CSS'}
+                  </Badge>
+                )}
+              </CardTitle>
               <CardDescription>
                 HTML/CSS gerado e validação visual
               </CardDescription>
