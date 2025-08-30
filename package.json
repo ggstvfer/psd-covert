@@ -1,0 +1,36 @@
+{
+  "name": "psd-covert",
+  "version": "1.0.0",
+  "description": "Deco Application built on top of Cloudflare Workers and React",
+  "private": true,
+  "workspaces": [
+    "server",
+    "view"
+  ],
+  "scripts": {
+    "dev": "concurrently \"cd view && npm run dev\" \"cd server && npm run dev\"",
+    "configure": "cd server && deco configure",
+    "gen": "cd server && deco gen --output=deco.gen.ts",
+    "gen:self": "cd server && deco gen --self=$DECO_SELF_URL --output=deco.gen.ts",
+    "deploy": "cd view && npm run build && cd ../server && npm run deploy",
+    "db:generate": "cd server && npm run db:generate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-progress": "^1.1.7",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "ag-psd": "^28.2.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "multer": "^2.0.2",
+    "pixelmatch": "^7.1.0",
+    "resemblejs": "^5.0.0",
+    "tailwind-merge": "^3.3.1"
+  }
+}
