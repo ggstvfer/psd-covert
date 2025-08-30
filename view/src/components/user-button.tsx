@@ -148,7 +148,7 @@ function ToolCallsTable() {
       </div>
 
       <div className="space-y-1 max-h-64 overflow-y-auto">
-        {calls.slice().reverse().map((call) => (
+        {calls.slice().reverse().map((call: ToolCall) => (
           <ToolCallItem
             key={`call-${call.tool}-${call.timestamp}`}
             call={call}
@@ -213,14 +213,14 @@ function LoginButton() {
 }
 
 export function UserButton() {
-  const { data: user } = useOptionalUser();
+  const user = useOptionalUser();
   const [debugOpen, setDebugOpen] = useState(false);
 
   if (!user) {
     return <LoginButton />;
   }
 
-  const username = user.name || user.email?.split("@")[0] || "user";
+  const username = user.user.name || user.user.email?.split("@")[0] || "user";
 
   return (
     <Popover>
@@ -258,7 +258,7 @@ export function UserButton() {
           <div className="border-t border-slate-700" />
 
           {/* Profile Section */}
-          <ProfileCard user={user} />
+          <ProfileCard user={user.user} />
 
           {/* Divider */}
           <div className="border-t border-slate-700" />

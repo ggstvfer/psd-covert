@@ -7,11 +7,11 @@ type ErrorBoundaryProps = {
 };
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps> {
-  state = {
+  override state = {
     hasError: false,
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return this.props.fallback || <div>Error</div>;
     }
@@ -19,7 +19,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps> {
     return this.props.children;
   }
 
-  componentDidCatch(error: Error) {
+  override componentDidCatch(error: Error) {
     this.props.onError(error);
     this.setState({ hasError: true });
   }

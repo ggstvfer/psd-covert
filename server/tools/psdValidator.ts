@@ -445,3 +445,118 @@ function parseHTMLElements(html: string): Array<{ x: number; y: number; width: n
 export const psdValidationTools = [
   // These will be instantiated with env in main.ts
 ];
+
+/**
+ * Standalone function for visual validation (for workflows)
+ */
+export async function validateVisualFidelity(psdData: any, htmlContent: string, cssContent: string, threshold: number = 0.95) {
+  try {
+    // Generate images from PSD and HTML
+    const psdImage = await generatePSDImage(psdData);
+    const htmlImage = await generateHTMLImage(htmlContent, cssContent, psdData.width, psdData.height);
+
+    // Perform visual comparison
+    const comparisonResult = await compareImages(psdImage, htmlImage, true);
+
+    // Analyze results and generate recommendations
+    const analysis = analyzeComparisonResults(comparisonResult, threshold);
+
+    return {
+      success: true,
+      similarity: comparisonResult.similarity,
+      differences: comparisonResult.differences,
+      totalPixels: comparisonResult.totalPixels,
+      passed: analysis.passed,
+      issues: analysis.issues,
+      recommendations: analysis.recommendations,
+      diffImageUrl: comparisonResult.diffImageUrl,
+      validationDate: new Date().toISOString(),
+      threshold
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return {
+      success: false,
+      similarity: 0,
+      differences: 0,
+      totalPixels: 0,
+      passed: false,
+      issues: [`Validation failed: ${errorMessage}`],
+      recommendations: ['Check HTML/CSS syntax', 'Verify image assets are accessible'],
+      validationDate: new Date().toISOString(),
+      threshold,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Standalone function for improving conversion quality (for workflows)
+ */
+export async function improveConversionQuality(validationResult: any, originalPsdData: any, currentHtml: string, currentCss: string) {
+  try {
+    const improvements: string[] = [];
+
+    // Analyze validation issues and generate improvements
+    if (validationResult.issues && validationResult.issues.length > 0) {
+      for (const issue of validationResult.issues) {
+        if (issue.includes('color')) {
+          improvements.push('Adjust color values to match original PSD');
+        } else if (issue.includes('position')) {
+          improvements.push('Fine-tune element positioning');
+        } else if (issue.includes('size')) {
+          improvements.push('Correct element dimensions');
+        } else if (issue.includes('font')) {
+          improvements.push('Update font properties');
+        }
+      }
+    }
+
+    // Generate improved HTML/CSS
+    const improvementResult = await applyImprovements(currentHtml, currentCss, validationResult, originalPsdData);
+    const improvedHtml = improvementResult.improvedHtml;
+    const improvedCss = improvementResult.improvedCss;
+
+    return {
+      success: true,
+      improvedHtml,
+      improvedCss,
+      improvements,
+      improvementCount: improvements.length,
+      generatedAt: new Date().toISOString()
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return {
+      success: false,
+      improvedHtml: currentHtml,
+      improvedCss: currentCss,
+      improvements: [],
+      improvementCount: 0,
+      generatedAt: new Date().toISOString(),
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Apply improvements to HTML/CSS content
+ */
+function applyImprovementsToContent(content: string, improvements: string[]): string {
+  let improvedContent = content;
+
+  // Apply basic improvements based on common issues
+  if (improvements.some(imp => imp.includes('color'))) {
+    // Add CSS custom properties for better color management
+    if (improvedContent.includes('<style>')) {
+      improvedContent = improvedContent.replace('<style>', '<style>\n:root {\n  --primary-color: #000000;\n  --secondary-color: #ffffff;\n}\n');
+    }
+  }
+
+  if (improvements.some(imp => imp.includes('position'))) {
+    // Add better positioning classes
+    improvedContent = improvedContent.replace(/class="/g, 'class="psd-element ');
+  }
+
+  return improvedContent;
+}

@@ -211,6 +211,35 @@ export const batchPsdConversionWorkflow: Workflow = {
       }
     },
     required: ["files"]
+  },
+  outputSchema: {
+    type: "object",
+    properties: {
+      batchResults: {
+        type: "array",
+        description: "Results of processing each file in the batch"
+      },
+      report: {
+        type: "object",
+        description: "Summary report of the batch processing"
+      },
+      success: {
+        type: "boolean",
+        description: "Whether the batch processing was successful"
+      },
+      totalFiles: {
+        type: "number",
+        description: "Total number of files processed"
+      },
+      processedFiles: {
+        type: "number",
+        description: "Number of successfully processed files"
+      },
+      failedFiles: {
+        type: "number",
+        description: "Number of files that failed to process"
+      }
+    }
   }
 };
 

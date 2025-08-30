@@ -396,7 +396,7 @@ function PSDConverterPage() {
                             <div className="bg-slate-700 p-3 rounded-lg max-h-32 overflow-y-auto">
                               {validationResult.issues.length > 0 ? (
                                 <ul className="space-y-1">
-                                  {validationResult.issues.map((issue, index) => (
+                                  {validationResult.issues.map((issue: string, index: number) => (
                                     <li key={index} className="text-sm text-slate-300 flex items-start gap-2">
                                       <span className="text-yellow-400 mt-1">•</span>
                                       {issue}
@@ -417,7 +417,7 @@ function PSDConverterPage() {
                             <div className="bg-slate-700 p-3 rounded-lg max-h-32 overflow-y-auto">
                               {validationResult.recommendations.length > 0 ? (
                                 <ul className="space-y-1">
-                                  {validationResult.recommendations.map((rec, index) => (
+                                  {validationResult.recommendations.map((rec: string, index: number) => (
                                     <li key={index} className="text-sm text-slate-300 flex items-start gap-2">
                                       <span className="text-green-400 mt-1">•</span>
                                       {rec}
