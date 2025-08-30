@@ -29,6 +29,8 @@ function PSDConverterPage() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [conversionProgress, setConversionProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [parsingResult, setParsingResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,8 +40,38 @@ function PSDConverterPage() {
       setConversionResult(null);
       setValidationResult(null);
       setPreviewUrl(null);
+      setParsingResult(null);
     } else {
       alert('Por favor, selecione um arquivo PSD válido.');
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.name.toLowerCase().endsWith('.psd')) {
+        setSelectedFile(file);
+        setConversionResult(null);
+        setValidationResult(null);
+        setPreviewUrl(null);
+        setParsingResult(null);
+      } else {
+        alert('Por favor, solte um arquivo PSD válido.');
+      }
     }
   };
 

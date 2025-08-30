@@ -1,15 +1,15 @@
 ﻿// ... existing code ...
 import { todoTools } from "./todos.ts";
 import { userTools } from "./user.ts";
-import { psdTools } from "./psdParser.ts";
+import { psdTools as psdToolsFactory } from "./psdParser.ts";
 import { psdConverterTools } from "./psdConverter.ts";
 import { psdValidationTools } from "./psdValidator.ts";
 
 // Export all tools from all domains
-export const tools = [
+export const tools = (env: any) => [
   ...todoTools,
   ...userTools,
-  ...psdTools,
+  ...psdToolsFactory(env),
   ...psdConverterTools,
   ...psdValidationTools,
 ];
