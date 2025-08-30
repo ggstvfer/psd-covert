@@ -5,6 +5,57 @@ const mockClient = {
   GENERATE_TODO_WITH_AI: () => Promise.resolve({ todo: { id: Date.now(), title: "New Todo", completed: false } }),
   TOGGLE_TODO: () => Promise.resolve({ todo: { id: 1, title: "Todo", completed: true } }),
   DELETE_TODO: () => Promise.resolve({ deletedId: 1 }),
+  PARSE_PSD_FILE: (filePath: string) => Promise.resolve({
+    success: true,
+    data: {
+      fileName: filePath.split('/').pop(),
+      width: 1920,
+      height: 1080,
+      layers: [
+        { name: "Background", type: "layer", position: { left: 0, top: 0 }, width: 1920, height: 1080 },
+        { name: "Header", type: "layer", position: { left: 0, top: 0 }, width: 1920, height: 200 },
+        { name: "Content", type: "layer", position: { left: 100, top: 250 }, width: 1720, height: 600 },
+        { name: "Footer", type: "layer", position: { left: 0, top: 900 }, width: 1920, height: 180 }
+      ],
+      metadata: { version: 1, channels: 4, colorMode: 3 }
+    }
+  }),
+  CONVERT_PSD_TO_HTML: (psdData: any, targetFramework: string = "vanilla") => Promise.resolve({
+    success: true,
+    html: `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PSD Convertido - ${psdData.fileName}</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">Header Content</header>
+  <main class="content">Main Content Area</main>
+  <footer class="footer">Footer Content</footer>
+</body>
+</html>`,
+    css: `.header { position: absolute; top: 0; left: 0; width: 100%; height: 200px; background: #f0f0f0; }
+.content { position: absolute; top: 250px; left: 100px; width: 1720px; height: 600px; background: #ffffff; }
+.footer { position: absolute; top: 900px; left: 0; width: 100%; height: 180px; background: #333333; }`,
+    components: [
+      { id: "header-1", type: "header", name: "Header", position: { left: 0, top: 0 } },
+      { id: "content-1", type: "main", name: "Content", position: { left: 100, top: 250 } },
+      { id: "footer-1", type: "footer", name: "Footer", position: { left: 0, top: 900 } }
+    ],
+    metadata: {
+      framework: targetFramework,
+      responsive: true,
+      semantic: true,
+      generatedAt: new Date().toISOString()
+    }
+  }),
+  GENERATE_HTML_PREVIEW: (htmlContent: string, cssContent: string) => Promise.resolve({
+    success: true,
+    previewUrl: `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent.replace('</head>', `<style>${cssContent}</style></head>`))}`,
+    previewHtml: htmlContent.replace('</head>', `<style>${cssContent}</style></head>`)
+  })
 };
 import {
   useMutation,
@@ -105,6 +156,74 @@ export const useDeleteTodo = () => {
         };
       });
       toast.success("Todo deleted successfully");
+    },
+  });
+};
+
+// PSD-related hooks
+export interface PSDData {
+  fileName: string;
+  width: number;
+  height: number;
+  layers: any[];
+  metadata: any;
+}
+
+export interface ConversionResult {
+  success: boolean;
+  html: string;
+  css: string;
+  components: any[];
+  metadata: {
+    framework: string;
+    responsive: boolean;
+    semantic: boolean;
+    generatedAt: string;
+  };
+  error?: string;
+}
+
+export const useParsePSD = () => {
+  return useMutation({
+    mutationFn: (filePath: string) => mockClient.PARSE_PSD_FILE(filePath),
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success("PSD parsed successfully!");
+      } else {
+        toast.error("Failed to parse PSD file");
+      }
+    },
+  });
+};
+
+export const useConvertPSDToHTML = () => {
+  return useMutation({
+    mutationFn: ({ psdData, targetFramework = "vanilla" }: {
+      psdData: PSDData;
+      targetFramework?: string;
+    }) => mockClient.CONVERT_PSD_TO_HTML(psdData, targetFramework),
+    onSuccess: (data: ConversionResult) => {
+      if (data.success) {
+        toast.success("PSD converted to HTML successfully!");
+      } else {
+        toast.error(data.error || "Failed to convert PSD");
+      }
+    },
+  });
+};
+
+export const useGeneratePreview = () => {
+  return useMutation({
+    mutationFn: ({ htmlContent, cssContent }: {
+      htmlContent: string;
+      cssContent: string;
+    }) => mockClient.GENERATE_HTML_PREVIEW(htmlContent, cssContent),
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success("Preview generated successfully!");
+      } else {
+        toast.error("Failed to generate preview");
+      }
     },
   });
 };

@@ -6,13 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface ConversionResult {
-  html: string;
-  css: string;
-  components: any[];
-  metadata: any;
-}
+import { type ConversionResult } from "@/lib/hooks";
 
 interface ValidationResult {
   similarity: number;
@@ -86,6 +80,7 @@ function PSDConverterPage() {
 
       // Mock conversion result
       const mockResult: ConversionResult = {
+        success: true,
         html: `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -120,6 +115,7 @@ function PSDConverterPage() {
         metadata: {
           framework: 'vanilla',
           responsive: true,
+          semantic: true,
           generatedAt: new Date().toISOString()
         }
       };
