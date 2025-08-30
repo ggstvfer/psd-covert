@@ -1,0 +1,750 @@
+﻿import { createRoute, type RootRoute } from "@tanstack/react-router";
+import { useState, useRef } from "react";
+import { Upload, FileImage, Loader, CheckCircle, AlertCircle, Eye, Download, Code, Palette, Smartphone, Globe, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { type ConversionResult, type ValidationResult } from "@/lib/hooks";
+
+type Framework = 'vanilla' | 'react' | 'vue' | 'angular';
+
+interface FrameworkOption {
+  id: Framework;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+}
+
+const frameworkOptions: FrameworkOption[] = [
+  {
+    id: 'vanilla',
+    name: 'Vanilla HTML/CSS',
+    description: 'HTML5 puro com CSS moderno',
+    icon: <Globe className="w-5 h-5" />,
+    color: 'bg-orange-500'
+  },
+  {
+    id: 'react',
+    name: 'React',
+    description: 'Componentes funcionais com JSX',
+    icon: <Code className="w-5 h-5" />,
+    color: 'bg-blue-500'
+  },
+  {
+    id: 'vue',
+    name: 'Vue.js',
+    description: 'Single File Components',
+    icon: <Palette className="w-5 h-5" />,
+    color: 'bg-green-500'
+  },
+  {
+    id: 'angular',
+    name: 'Angular',
+    description: 'Componentes TypeScript',
+    icon: <Smartphone className="w-5 h-5" />,
+    color: 'bg-red-500'
+  }
+];
+
+function PSDConverterPage() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFramework, setSelectedFramework] = useState<Framework>('vanilla');
+  const [responsive, setResponsive] = useState(true);
+  const [semantic, setSemantic] = useState(true);
+  const [accessibility, setAccessibility] = useState(true);
+  const [isConverting, setIsConverting] = useState(false);
+  const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [conversionProgress, setConversionProgress] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.name.toLowerCase().endsWith('.psd')) {
+      setSelectedFile(file);
+      setConversionResult(null);
+      setValidationResult(null);
+      setPreviewUrl(null);
+      setPreviewUrl(null);
+    } else {
+      alert('Por favor, selecione um arquivo PSD válido.');
+    }
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.name.toLowerCase().endsWith('.psd')) {
+        setSelectedFile(file);
+        setConversionResult(null);
+        setValidationResult(null);
+        setPreviewUrl(null);
+      } else {
+        alert('Por favor, solte um arquivo PSD válido.');
+      }
+    }
+  };
+
+  const handleConvert = async () => {
+    setIsConverting(true);
+    setConversionProgress(0);
+
+    try {
+      if (!selectedFile) {
+        throw new Error('Nenhum arquivo PSD selecionado.');
+      }
+
+      // Step 1: Upload PSD file and get URL
+      setConversionProgress(10);
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      // For now, create a data URL for the file
+      const fileReader = new FileReader();
+      const fileUrl = await new Promise<string>((resolve) => {
+        fileReader.onload = () => resolve(fileReader.result as string);
+        fileReader.readAsDataURL(selectedFile);
+      });
+
+      setConversionProgress(25);
+
+      // Step 2: Parse PSD file using backend
+      const parseResponse = await fetch('http://127.0.0.1:8787/api/parse-psd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filePath: fileUrl,
+          includeImageData: false
+        })
+      });
+
+      if (!parseResponse.ok) {
+        throw new Error('Failed to parse PSD file');
+      }
+
+      const psdData = await parseResponse.json();
+      setConversionProgress(50);
+
+      // Step 3: Convert PSD to HTML using backend
+      const convertResponse = await fetch('http://127.0.0.1:8787/api/convert-psd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          psdData: psdData.data,
+          targetFramework: selectedFramework,
+          responsive,
+          semantic,
+          accessibility
+        })
+      });
+
+      if (!convertResponse.ok) {
+        throw new Error('Failed to convert PSD');
+      }
+
+      const conversionResult = await convertResponse.json();
+      setConversionProgress(75);
+
+      // Step 4: Validate conversion
+      const validationResponse = await fetch('http://127.0.0.1:8787/api/validate-psd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          psdData: psdData.data,
+          htmlContent: conversionResult.html,
+          cssContent: conversionResult.css,
+          threshold: 0.95
+        })
+      });
+
+      let validationResult = null;
+      if (validationResponse.ok) {
+        validationResult = await validationResponse.json();
+      }
+
+      setConversionProgress(100);
+      setConversionResult(conversionResult);
+      setValidationResult(validationResult);
+
+      // Generate preview
+      const blob = new Blob([conversionResult.html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+
+    } catch (error) {
+      console.error('Erro na conversão:', error);
+      alert(`Erro durante a conversão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    } finally {
+      setIsConverting(false);
+    }
+  };
+  template: \`
+    <div class="psd-converted">
+      <div class="psd-div-comp-0">
+        <p className="psd-text-comp-1">Texto do PSD</p>
+      </div>
+      <button className="psd-button-comp-2">Botão do PSD</button>
+    </div>
+  \`,
+  styles: [\`
+    .psd-converted { position: relative; width: 100%; margin: 0 auto; }
+    .psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+    .psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+    .psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  \`]
+})
+export class PSDComponent {
+  // Component logic here
+}`,
+              css: `.psd-converted { position: relative; width: 100%; margin: 0 auto; }
+.psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+.psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }`
+            };
+          default: // vanilla
+            return {
+              html: `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PSD Convertido - ${selectedFile.name}</title>
+  <style>
+    .psd-converted { position: relative; width: 100%; margin: 0 auto; }
+    .psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+    .psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+    .psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="psd-converted">
+    <div class="psd-div-comp-0">
+      <p class="psd-text-comp-1">Texto do PSD</p>
+    </div>
+    <button class="psd-button-comp-2">Botão do PSD</button>
+  </div>
+</body>
+</html>`,
+              css: `.psd-converted { position: relative; width: 100%; margin: 0 auto; }
+.psd-div-comp-0 { position: absolute; left: 50px; top: 50px; width: 200px; height: 100px; background: #e74c3c; border-radius: 8px; }
+.psd-text-comp-1 { position: absolute; left: 80px; top: 70px; color: white; font-family: Arial; font-size: 16px; }
+.psd-button-comp-2 { position: absolute; left: 100px; top: 150px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }`
+            };
+        }
+      };
+
+      const frameworkContent = getFrameworkContent();
+
+      const mockResult: ConversionResult = {
+        success: true,
+        html: frameworkContent.html,
+        css: frameworkContent.css,
+        components: [
+          { id: 'comp-0', type: 'div', name: 'Background', position: { left: 50, top: 50 } },
+          { id: 'comp-1', type: 'text', name: 'Title', position: { left: 80, top: 70 } },
+          { id: 'comp-2', type: 'button', name: 'CTA Button', position: { left: 100, top: 150 } }
+        ],
+        metadata: {
+          framework: selectedFramework,
+          responsive,
+          semantic,
+          accessibility,
+          generatedAt: new Date().toISOString()
+        }
+      };
+
+      setConversionProgress(75);
+      setConversionResult(mockResult);
+
+      // Mock validation
+      const mockValidation: ValidationResult = {
+        success: true,
+        similarity: 0.87,
+        differences: 1250,
+        totalPixels: 1920 * 1080,
+        passed: false,
+        issues: [
+          'Layout spacing slightly off',
+          'Font rendering differences',
+          'Color slight variations'
+        ],
+        recommendations: [
+          'Adjust margin calculations',
+          'Use exact font matching',
+          'Fine-tune color conversion'
+        ],
+        validationDate: new Date().toISOString(),
+        threshold: 0.95
+      };
+
+      setValidationResult(mockValidation);
+      setConversionProgress(100);
+
+      // Generate preview
+      const blob = new Blob([mockResult.html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+
+    } catch (error) {
+      console.error('Erro na conversão:', error);
+      alert('Erro durante a conversão. Tente novamente.');
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  // Move handleDownload inside the PSDConverterPage component so it can access conversionResult
+  const handleDownload = (type: 'html' | 'css') => {
+    if (!conversionResult) return;
+
+    const content = type === 'html' ? conversionResult.html : conversionResult.css;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `converted-${type}.${type}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Remove unused/duplicate handleDrop and handleConvert stubs
+
+  return (
+    <div className="bg-slate-900 min-h-screen p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <FileImage className="w-8 h-8 text-blue-400" />
+          <div>
+            <h1 className="text-2xl font-bold text-white">PSD to HTML Converter</h1>
+            <p className="text-slate-400">Converta arquivos Photoshop em HTML/CSS com IA</p>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Framework Selector */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Code className="w-5 h-5" />
+                Framework de Saída
+              </CardTitle>
+              <CardDescription>
+                Escolha a tecnologia para gerar o código
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3">
+                {frameworkOptions.map((framework) => (
+                  <button
+                    key={framework.id}
+                    onClick={() => setSelectedFramework(framework.id)}
+                    className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                      selectedFramework === framework.id
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-lg ${framework.color} text-white`}>
+                        {framework.icon}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-white">{framework.name}</h3>
+                        <p className="text-sm text-slate-400">{framework.description}</p>
+                      </div>
+                    </div>
+                    {selectedFramework === framework.id && (
+                      <div className="flex items-center gap-2 text-blue-400">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm">Selecionado</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Advanced Settings */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Configurações Avançadas
+              </CardTitle>
+              <CardDescription>
+                Personalize as opções de geração de código
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Responsivo</h4>
+                    <p className="text-sm text-slate-400">Media queries automáticas</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={responsive}
+                      onChange={(e) => setResponsive(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Semântico</h4>
+                    <p className="text-sm text-slate-400">HTML semântico</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={semantic}
+                      onChange={(e) => setSemantic(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  <div>
+                    <h4 className="text-white font-medium">Acessibilidade</h4>
+                    <p className="text-sm text-slate-400">Atributos ARIA</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={accessibility}
+                      onChange={(e) => setAccessibility(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Upload Section */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Upload do Arquivo PSD
+              </CardTitle>
+              <CardDescription>
+                Selecione um arquivo .psd para converter em HTML/CSS
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div
+                className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center hover:border-slate-500 transition-colors cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragLeave={handleDragLeave}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".psd"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <FileImage className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                <p className="text-slate-300 mb-2">
+                  {selectedFile ? selectedFile.name : 'Clique para selecionar arquivo PSD'}
+                </p>
+                <p className="text-sm text-slate-500">
+                  Apenas arquivos .psd são suportados
+                </p>
+              </div>
+
+              {selectedFile && (
+                <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileImage className="w-5 h-5 text-blue-400" />
+                    <div>
+                      <p className="text-sm font-medium text-white">{selectedFile.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleConvert}
+                    disabled={isConverting}
+                    className="bg-blue-600 hover:bg-blue-500"
+                  >
+                    {isConverting ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin mr-2" />
+                        Convertendo...
+                      </>
+                    ) : (
+                      'Converter'
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {isConverting && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-300">Progresso da Conversão</span>
+                    <span className="text-slate-300">{conversionProgress}%</span>
+                  </div>
+                  <Progress value={conversionProgress} className="h-2" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Results Section */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                Resultado da Conversão
+                {conversionResult && (
+                  <Badge variant="secondary" className="ml-2">
+                    {frameworkOptions.find(f => f.id === conversionResult.metadata.framework)?.name || 'Vanilla HTML/CSS'}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                HTML/CSS gerado e validação visual
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {conversionResult ? (
+                <Tabs defaultValue="preview" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="preview">Preview</TabsTrigger>
+                    <TabsTrigger value="code">Código</TabsTrigger>
+                    <TabsTrigger value="validation">Validação</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="preview" className="space-y-4">
+                    {previewUrl && (
+                      <div className="space-y-4">
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => window.open(previewUrl, '_blank')}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Ver Preview
+                          </Button>
+                          <Button
+                            onClick={() => handleDownload('html')}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download HTML
+                          </Button>
+                          <Button
+                            onClick={() => handleDownload('css')}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download CSS
+                          </Button>
+                        </div>
+                        <div className="border border-slate-600 rounded-lg overflow-hidden">
+                          <iframe
+                            src={previewUrl}
+                            className="w-full h-96 bg-white"
+                            title="PSD Preview"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="code" className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium text-white">HTML Gerado</h4>
+                      <pre className="bg-slate-900 p-4 rounded-lg text-xs text-slate-300 overflow-x-auto max-h-48">
+                        {conversionResult.html}
+                      </pre>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium text-white">CSS Gerado</h4>
+                      <pre className="bg-slate-900 p-4 rounded-lg text-xs text-slate-300 overflow-x-auto max-h-48">
+                        {conversionResult.css}
+                      </pre>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="validation" className="space-y-4">
+                    {validationResult && (
+                      <div className="space-y-4">
+                        {/* Validation Summary */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-slate-700 p-4 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              {validationResult.passed ? (
+                                <CheckCircle className="w-5 h-5 text-green-400" />
+                              ) : (
+                                <AlertCircle className="w-5 h-5 text-yellow-400" />
+                              )}
+                              <span className="text-white font-medium">Similaridade</span>
+                            </div>
+                            <p className="text-2xl font-bold text-white">
+                              {(validationResult.similarity * 100).toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              Threshold: {(validationResult.threshold * 100).toFixed(1)}%
+                            </p>
+                          </div>
+
+                          <div className="bg-slate-700 p-4 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertCircle className="w-5 h-5 text-blue-400" />
+                              <span className="text-white font-medium">Diferenças</span>
+                            </div>
+                            <p className="text-2xl font-bold text-white">
+                              {validationResult.differences.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              de {validationResult.totalPixels.toLocaleString()} pixels
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="flex items-center justify-between">
+                          <Badge
+                            variant={validationResult.passed ? "default" : "secondary"}
+                            className="text-sm"
+                          >
+                            {validationResult.passed ? "✅ Validação Aprovada" : "⚠️ Precisa Melhorar"}
+                          </Badge>
+
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-500"
+                            disabled={!conversionResult}
+                          >
+                            🚀 Auto-Melhorar
+                          </Button>
+                        </div>
+
+                        {/* Issues and Recommendations */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-yellow-400" />
+                              Problemas Identificados ({validationResult.issues.length})
+                            </h4>
+                            <div className="bg-slate-700 p-3 rounded-lg max-h-32 overflow-y-auto">
+                              {validationResult.issues.length > 0 ? (
+                                <ul className="space-y-1">
+                                  {validationResult.issues.map((issue: string, index: number) => (
+                                    <li key={index} className="text-sm text-slate-300 flex items-start gap-2">
+                                      <span className="text-yellow-400 mt-1">•</span>
+                                      {issue}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-slate-400">Nenhum problema identificado</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-400" />
+                              Recomendações ({validationResult.recommendations.length})
+                            </h4>
+                            <div className="bg-slate-700 p-3 rounded-lg max-h-32 overflow-y-auto">
+                              {validationResult.recommendations.length > 0 ? (
+                                <ul className="space-y-1">
+                                  {validationResult.recommendations.map((rec: string, index: number) => (
+                                    <li key={index} className="text-sm text-slate-300 flex items-start gap-2">
+                                      <span className="text-green-400 mt-1">•</span>
+                                      {rec}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-slate-400">Nenhuma recomendação disponível</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Validation Date */}
+                        <div className="text-xs text-slate-500 text-right">
+                          Validado em: {new Date(validationResult.validationDate).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                    )}
+
+                    {!validationResult && conversionResult && (
+                      <div className="text-center py-8">
+                        <AlertCircle className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                        <p className="text-slate-400 mb-2">Validação não executada</p>
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-500"
+                        >
+                          Executar Validação Visual
+                        </Button>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <div className="text-center py-12">
+                  <FileImage className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400">
+                    Faça upload de um arquivo PSD para ver os resultados
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default (parentRoute: RootRoute) =>
+  createRoute({
+    path: "/converter",
+    component: PSDConverterPage,
+    getParentRoute: () => parentRoute,
+  });
+

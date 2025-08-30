@@ -42,6 +42,152 @@ const fallbackToView = (viewPath: string = "/") => (req: Request, env: Env) => {
   return useDevServer ? fetch(request) : env.ASSETS.fetch(request);
 };
 
+// API Routes handler
+const handleApiRoutes = async (req: Request, env: Env) => {
+  const url = new URL(req.url);
+
+  // Parse PSD API
+  if (url.pathname === '/api/parse-psd' && req.method === 'POST') {
+    try {
+      const body = await req.json();
+      const { filePath, includeImageData = false } = body;
+
+      const parserTool = createPsdParserTool(env);
+      const result = await parserTool.execute({
+        filePath,
+        includeImageData
+      } as any);
+
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  // Convert PSD API
+  if (url.pathname === '/api/convert-psd' && req.method === 'POST') {
+    try {
+      const body = await req.json();
+      const { psdData, targetFramework, responsive, semantic, accessibility } = body;
+
+      const converterTool = createPsdToHtmlTool(env);
+      const result = await converterTool.execute({
+        psdData,
+        targetFramework,
+        responsive,
+        semantic,
+        accessibility
+      } as any);
+
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  // Validate PSD API
+  if (url.pathname === '/api/validate-psd' && req.method === 'POST') {
+    try {
+      const body = await req.json();
+      const { psdData, htmlContent, cssContent, threshold = 0.95 } = body;
+
+      const validatorTool = createVisualValidationTool(env);
+      const result = await validatorTool.execute({
+        psdData,
+        htmlContent,
+        cssContent,
+        threshold,
+        includeDiffImage: true
+      } as any);
+
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  // Self-reinforce API
+  if (url.pathname === '/api/self-reinforce' && req.method === 'POST') {
+    try {
+      const body = await req.json();
+      const { validationResults, originalPsdData, currentHtml, currentCss, iteration = 1 } = body;
+
+      const reinforceTool = createSelfReinforceTool(env);
+      const result = await reinforceTool.execute({
+        validationResults,
+        originalPsdData,
+        currentHtml,
+        currentCss,
+        iteration
+      } as any);
+
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  // Preview API
+  if (url.pathname === '/api/preview' && req.method === 'POST') {
+    try {
+      const body = await req.json();
+      const { htmlContent, cssContent } = body;
+
+      const previewTool = createHtmlPreviewTool(env);
+      const result = await previewTool.execute({
+        htmlContent,
+        cssContent
+      } as any);
+
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  return null; // Not an API route, continue to fallback
+};
+
 const runtime = withRuntime<Env, typeof StateSchema>({
   oauth: {
     scopes: ["AI_GENERATE", "AI_GENERATE_OBJECT"],
@@ -57,7 +203,16 @@ const runtime = withRuntime<Env, typeof StateSchema>({
     createVisualValidationTool,
     createSelfReinforceTool
   ],
-  fetch: fallbackToView("/"),
+  fetch: async (req, env) => {
+    // Try API routes first
+    const apiResponse = await handleApiRoutes(req, env);
+    if (apiResponse) {
+      return apiResponse;
+    }
+
+    // Fall back to view handler
+    return fallbackToView("/")(req, env);
+  },
 });
 
 export const Workflow = runtime.Workflow;

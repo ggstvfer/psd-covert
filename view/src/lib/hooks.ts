@@ -1,4 +1,6 @@
 // Mock implementations until backend is fully set up
+// TODO: Replace with real backend integration
+const USE_REAL_BACKEND = false; // Toggle this to switch between mock and real backend
 
 export interface ConversionResult {
   success: boolean;
@@ -130,6 +132,63 @@ const mockClient = {
     iteration: iteration + 1
   })
 };
+
+// Real backend integration functions using HTTP calls
+const realClient = {
+  PARSE_PSD_FILE: async (filePath: string) => {
+    const response = await fetch('/api/tools/parse-psd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath, includeImageData: false })
+    });
+    if (!response.ok) throw new Error('Failed to parse PSD');
+    return response.json();
+  },
+
+  CONVERT_PSD_TO_HTML: async (psdData: any, targetFramework: string = "vanilla", responsive: boolean = true, semantic: boolean = true, accessibility: boolean = true) => {
+    const response = await fetch('/api/tools/convert-psd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ psdData, targetFramework, responsive, semantic, accessibility })
+    });
+    if (!response.ok) throw new Error('Failed to convert PSD');
+    return response.json();
+  },
+
+  VISUAL_VALIDATION: async (psdData: any, htmlContent: string, cssContent: string, threshold: number = 0.95) => {
+    const response = await fetch('/api/tools/validate-psd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ psdData, htmlContent, cssContent, threshold, includeDiffImage: true })
+    });
+    if (!response.ok) throw new Error('Failed to validate');
+    return response.json();
+  },
+
+  SELF_REINFORCE: async (validationResults: any, originalPsdData: any, currentHtml: string, currentCss: string, iteration: number = 1) => {
+    const response = await fetch('/api/tools/self-reinforce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ validationResults, originalPsdData, currentHtml, currentCss, iteration })
+    });
+    if (!response.ok) throw new Error('Failed to self-reinforce');
+    return response.json();
+  },
+
+  GENERATE_HTML_PREVIEW: async (htmlContent: string, cssContent: string) => {
+    const response = await fetch('/api/tools/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ htmlContent, cssContent })
+    });
+    if (!response.ok) throw new Error('Failed to generate preview');
+    return response.json();
+  }
+};
+
+// Choose which client to use based on the flag
+const activeClient = USE_REAL_BACKEND ? realClient : mockClient;
+
 import {
   useMutation,
   useQueryClient,
@@ -268,7 +327,7 @@ export interface ImprovementResult {
 
 export const useParsePSD = () => {
   return useMutation({
-    mutationFn: (filePath: string) => mockClient.PARSE_PSD_FILE(filePath),
+    mutationFn: (filePath: string) => activeClient.PARSE_PSD_FILE(filePath),
     onSuccess: (data) => {
       if (data.success) {
         toast.success("PSD parsed successfully!");
@@ -284,7 +343,7 @@ export const useConvertPSDToHTML = () => {
     mutationFn: ({ psdData, targetFramework = "vanilla" }: {
       psdData: PSDData;
       targetFramework?: string;
-    }) => mockClient.CONVERT_PSD_TO_HTML(psdData, targetFramework),
+    }) => activeClient.CONVERT_PSD_TO_HTML(psdData, targetFramework),
     onSuccess: (data: ConversionResult) => {
       if (data.success) {
         toast.success("PSD converted to HTML successfully!");
@@ -300,7 +359,7 @@ export const useGeneratePreview = () => {
     mutationFn: ({ htmlContent, cssContent }: {
       htmlContent: string;
       cssContent: string;
-    }) => mockClient.GENERATE_HTML_PREVIEW(htmlContent, cssContent),
+    }) => activeClient.GENERATE_HTML_PREVIEW(htmlContent, cssContent),
     onSuccess: (data) => {
       if (data.success) {
         toast.success("Preview generated successfully!");
@@ -319,7 +378,7 @@ export const useVisualValidation = () => {
       htmlContent: string;
       cssContent: string;
       threshold?: number;
-    }) => mockClient.VISUAL_VALIDATION(psdData, htmlContent, cssContent, threshold),
+    }) => activeClient.VISUAL_VALIDATION(psdData, htmlContent, cssContent, threshold),
     onSuccess: (data: ValidationResult) => {
       if (data.success) {
         if (data.passed) {
@@ -342,7 +401,7 @@ export const useSelfReinforce = () => {
       currentHtml: string;
       currentCss: string;
       iteration?: number;
-    }) => mockClient.SELF_REINFORCE(validationResults, originalPsdData, currentHtml, currentCss, iteration),
+    }) => activeClient.SELF_REINFORCE(validationResults, originalPsdData, currentHtml, currentCss, iteration),
     onSuccess: (data: ImprovementResult) => {
       if (data.success) {
         toast.success(`Quality improved! Confidence: ${(data.confidence * 100).toFixed(1)}%`);
