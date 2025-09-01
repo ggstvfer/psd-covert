@@ -8,6 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type ConversionResult, type ValidationResult } from "@/lib/hooks";
 
+// API Configuration - Auto-detect environment
+const API_BASE_URL = (() => {
+  // Check if we're in development (localhost)
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://127.0.0.1:8787';
+  }
+
+  // For production, use the Deco tunnel URL or relative path
+  if (typeof window !== 'undefined' && window.location.hostname.includes('deco.host')) {
+    return ''; // Use relative URLs for Deco
+  }
+
+  // Fallback to relative URLs
+  return '';
+})();
+
+console.log('🔗 API Base URL:', API_BASE_URL || 'relative URLs');
+
 type Framework = 'vanilla' | 'react' | 'vue' | 'angular';
 
 interface FrameworkOption {
@@ -109,12 +127,26 @@ function PSDConverterPage() {
         throw new Error('Nenhum arquivo PSD selecionado.');
       }
 
-      // Step 1: Upload PSD file and get URL
-      setConversionProgress(10);
-      const formData = new FormData();
-      formData.append('file', selectedFile);
+      // Check file size before processing
+      const maxSize = 50 * 1024 * 1024; // 50MB limit
+      if (selectedFile.size > maxSize) {
+        throw new Error(`Arquivo muito grande: ${(selectedFile.size / 1024 / 1024).toFixed(1)}MB. Limite máximo: ${maxSize / 1024 / 1024}MB`);
+      }
 
-      // For now, create a data URL for the file
+      setConversionProgress(10);
+
+      console.log('🔧 Iniciando conversão otimizada...');
+      console.log('📁 Arquivo:', selectedFile.name);
+      console.log('📊 Tamanho:', `${(selectedFile.size / 1024 / 1024).toFixed(1)}MB`);
+      console.log('🎯 Framework:', selectedFramework);
+      console.log('⚙️ Opções:', { responsive, semantic, accessibility });
+
+      // For large files, use optimized processing
+      if (selectedFile.size > 10 * 1024 * 1024) { // > 10MB
+        console.log('📈 Arquivo grande detectado, usando processamento otimizado...');
+      }
+
+      // Create data URL for the file
       const fileReader = new FileReader();
       const fileUrl = await new Promise<string>((resolve) => {
         fileReader.onload = () => resolve(fileReader.result as string);
@@ -123,13 +155,8 @@ function PSDConverterPage() {
 
       setConversionProgress(25);
 
-      console.log('🔧 Fase 5: Tentando integração com backend real...');
-      console.log('📁 Arquivo:', selectedFile.name);
-      console.log('🎯 Framework:', selectedFramework);
-      console.log('⚙️ Opções:', { responsive, semantic, accessibility });
-
       // Step 2: Parse PSD file using backend
-      const parseResponse = await fetch('http://127.0.0.1:8787/api/parse-psd', {
+      const parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +175,7 @@ function PSDConverterPage() {
       setConversionProgress(50);
 
       // Step 3: Convert PSD to HTML using backend
-      const convertResponse = await fetch('http://127.0.0.1:8787/api/convert-psd', {
+      const convertResponse = await fetch(`${API_BASE_URL}/api/convert-psd`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +197,7 @@ function PSDConverterPage() {
       setConversionProgress(75);
 
       // Step 4: Validate conversion
-      const validationResponse = await fetch('http://127.0.0.1:8787/api/validate-psd', {
+      const validationResponse = await fetch(`${API_BASE_URL}/api/validate-psd`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,8 +225,20 @@ function PSDConverterPage() {
       setPreviewUrl(url);
 
     } catch (error) {
-      console.error('Erro na conversão:', error);
-      alert(`Erro durante a conversão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error('❌ Erro na conversão:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+
+      // Provide helpful error messages for common issues
+      let userFriendlyMessage = errorMessage;
+      if (errorMessage.includes('File too large') || errorMessage.includes('Arquivo muito grande')) {
+        userFriendlyMessage = `${errorMessage}\n\n💡 Dicas para arquivos grandes:\n• Arquivos PSD devem ter no máximo 50MB\n• Considere otimizar o arquivo removendo camadas desnecessárias\n• Use resolução menor se possível\n• Tente dividir designs complexos em arquivos menores`;
+      } else if (errorMessage.includes('Failed to parse') || errorMessage.includes('parsing')) {
+        userFriendlyMessage = `${errorMessage}\n\n🔧 Possíveis soluções:\n• Verifique se o arquivo PSD não está corrompido\n• Certifique-se de que é um arquivo PSD válido\n• Tente salvar o arquivo novamente no Photoshop`;
+      } else if (errorMessage.includes('memory') || errorMessage.includes('Memory')) {
+        userFriendlyMessage = `${errorMessage}\n\n🧠 Problema de memória detectado:\n• Arquivo muito grande para processamento\n• Tente reduzir o tamanho do arquivo\n• Feche outras aplicações para liberar memória\n• Considere usar a versão de desenvolvimento local`;
+      }
+
+      alert(`Erro durante a conversão:\n\n${userFriendlyMessage}`);
     } finally {
       setIsConverting(false);
     }

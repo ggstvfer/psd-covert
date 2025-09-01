@@ -3,17 +3,14 @@ name = "psd-covert"
 main = "main.ts"
 compatibility_date = "2025-06-17"
 compatibility_flags = [ "nodejs_compat" ]
-scope = "alfanet"
+
+[limits]
+cpu_ms = 10000
+memory_mb = 512
 
 [assets]
 directory = "./view-build"
 binding = "ASSETS"
-
-[deco]
-workspace = "alfanet"
-bindings = []
-enable_workflows = true
-local = false
 
 [[migrations]]
 tag = "v1"

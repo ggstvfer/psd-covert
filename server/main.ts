@@ -42,12 +42,53 @@ const fallbackToView = (viewPath: string = "/") => (req: Request, env: Env) => {
   return useDevServer ? fetch(request) : env.ASSETS.fetch(request);
 };
 
+// Helper function to add CORS headers to any response
+const addCorsHeaders = (response: Response): Response => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+
+  // Clone the response and add CORS headers
+  const newHeaders = new Headers(response.headers);
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    newHeaders.set(key, value);
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders,
+  });
+};
+
 // API Routes handler
 const handleApiRoutes = async (req: Request, env: Env) => {
   const url = new URL(req.url);
 
+  // CORS headers
+  const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: CORS_HEADERS
+    });
+  }
+
   // Common headers
-  const JSON_HEADERS = { 'Content-Type': 'application/json' };
+  const JSON_HEADERS = {
+    'Content-Type': 'application/json',
+    ...CORS_HEADERS
+  };
 
   // Parse PSD API
   if (url.pathname === '/api/parse-psd' && req.method === 'POST') {
@@ -224,7 +265,10 @@ const runtime = withRuntime<Env, typeof StateSchema>({
     }
 
     // Fall back to view handler
-    return fallbackToView("/")(req, env);
+    const viewResponse = await fallbackToView("/")(req, env);
+
+    // Add CORS headers to view responses
+    return addCorsHeaders(viewResponse);
   },
 });
 

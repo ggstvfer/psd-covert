@@ -8,6 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type ConversionResult, type ValidationResult } from "@/lib/hooks";
 
+// API Configuration - Auto-detect environment
+const API_BASE_URL = (() => {
+  // Check if we're in development (localhost)
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://127.0.0.1:8787';
+  }
+
+  // For production, use the Deco tunnel URL or relative path
+  if (typeof window !== 'undefined' && window.location.hostname.includes('deco.host')) {
+    return ''; // Use relative URLs for Deco
+  }
+
+  // Fallback to relative URLs
+  return '';
+})();
+
+console.log('🔗 API Base URL (converter_new):', API_BASE_URL || 'relative URLs');
+
 type Framework = 'vanilla' | 'react' | 'vue' | 'angular';
 
 interface FrameworkOption {
@@ -128,7 +146,7 @@ function PSDConverterPage() {
       console.log('⚙️ Opções:', { responsive, semantic, accessibility });
 
       // Step 2: Parse PSD file using backend
-      const parseResponse = await fetch('http://127.0.0.1:8787/api/parse-psd', {
+      const parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +165,7 @@ function PSDConverterPage() {
       setConversionProgress(50);
 
       // Step 3: Convert PSD to HTML using backend
-      const convertResponse = await fetch('http://127.0.0.1:8787/api/convert-psd', {
+      const convertResponse = await fetch(`${API_BASE_URL}/api/convert-psd`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,7 +187,7 @@ function PSDConverterPage() {
       setConversionProgress(75);
 
       // Step 4: Validate conversion
-      const validationResponse = await fetch('http://127.0.0.1:8787/api/validate-psd', {
+      const validationResponse = await fetch(`${API_BASE_URL}/api/validate-psd`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
