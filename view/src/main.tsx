@@ -11,6 +11,7 @@ import ConverterPage from "./routes/converter.tsx";
 import ConverterSimple from "./routes/converter-simple.tsx";
 import ConverterDirect from "./routes/converter-direct.tsx";
 import ConverterReal from "./routes/converter-real.tsx";
+import ConverterRealAdvanced from "./routes/converter-real-advanced.tsx";
 import ConverterAI from "./routes/converter-ai.tsx";
 import { Toaster } from "sonner";
 
@@ -49,6 +50,13 @@ const converterAIRoute = createRoute({
   component: ConverterAI,
 });
 
+// Criar rota Real Advanced
+const converterRealAdvancedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/converter-real-advanced",
+  component: ConverterRealAdvanced,
+});
+
 const routeTree = rootRoute.addChildren([
   HomePage(rootRoute),
   ConverterPage(rootRoute),
@@ -56,6 +64,7 @@ const routeTree = rootRoute.addChildren([
   converterDirectRoute,
   converterRealRoute,
   converterAIRoute,
+  converterRealAdvancedRoute,
 ]);
 
 const queryClient = new QueryClient();
