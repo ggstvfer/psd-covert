@@ -9,6 +9,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
+  "ag-psd": "^23.0.1",
     "@deco/workers-runtime": "npm:@jsr/deco__workers-runtime@0.11.1",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-popover": "^1.1.15",

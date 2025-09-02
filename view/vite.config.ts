@@ -10,6 +10,19 @@ export default defineConfig({
   build: {
     outDir: "../server/view-build/",
     emptyOutDir: true,
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react')) return 'react';
+            if (id.includes('ag-psd')) return 'psd';
+            if (id.includes('@tanstack')) return 'tanstack';
+            return 'vendor';
+          }
+        },
+      },
+    },
   },
   server: {
     strictPort: true,

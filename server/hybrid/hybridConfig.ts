@@ -15,9 +15,9 @@ export interface HybridConfig {
   strategies: {
     // Para arquivos pequenos (< 5MB)
     smallFiles: {
-      maxSize: 5 * 1024 * 1024; // 5MB
-      method: 'direct'; // Processamento direto
-      estimatedTime: 2000; // ~2s
+      maxSize: 5 * 1024 * 1024, // 5MB
+      method: 'direct', // Processamento direto
+      estimatedTime: 2000 // ~2s
     };
 
     // Para arquivos médios (5-15MB)

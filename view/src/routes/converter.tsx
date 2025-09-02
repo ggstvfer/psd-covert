@@ -88,11 +88,19 @@ function PSDConverterPage() {
   const uploadSamplesRef = useRef<{ t: number; bytes: number }[]>([]);
   const [useGzip, setUseGzip] = useState(true);
   const [partialLoading, setPartialLoading] = useState(false);
+  const [uploadId, setUploadId] = useState<string | null>(null);
+  const [partialPreview, setPartialPreview] = useState<any | null>(null);
+  const [useDurableObject, setUseDurableObject] = useState(false);
+  const [doUploadName, setDoUploadName] = useState<string | null>(null);
 
   // Decide chunk mode ( > 1MB ) para garantir chunked em arquivos grandes e médios
   useEffect(()=>{
     if(selectedFile){
       setChunkMode(selectedFile.size > 1*1024*1024);
+      // Auto enable DO for >20MB
+      if(selectedFile.size > 20*1024*1024){
+        setUseDurableObject(true);
+      }
     } else {
       setChunkMode(false);
     }
@@ -145,7 +153,7 @@ function PSDConverterPage() {
         throw new Error('Nenhum arquivo PSD selecionado.');
       }
 
-      // Check file size before processing
+  // Check file size before processing
       const maxSize = 50 * 1024 * 1024; // 50MB limit
       if (selectedFile.size > maxSize) {
         throw new Error(`Arquivo muito grande: ${(selectedFile.size / 1024 / 1024).toFixed(1)}MB. Limite máximo: ${maxSize / 1024 / 1024}MB`);
@@ -159,16 +167,43 @@ function PSDConverterPage() {
       console.log('🎯 Framework:', selectedFramework);
       console.log('⚙️ Opções:', { responsive, semantic, accessibility });
 
-      // For large files, use optimized processing
-      if (selectedFile.size > 10 * 1024 * 1024) { // > 10MB
-        console.log('📈 Arquivo grande detectado, usando processamento otimizado...');
+      const LARGE_THRESHOLD = 20 * 1024 * 1024; // 20MB
+      const EXTREME_THRESHOLD = 40 * 1024 * 1024; // 40MB
+      if (selectedFile.size > LARGE_THRESHOLD) {
+        console.log('📈 Arquivo grande detectado, estratégia híbrida');
       }
 
-      // Create data URL for the file (or use FormData for large files)
-      let fileData: string | FormData;
-      let useFormData = selectedFile.size > 20 * 1024 * 1024; // > 20MB
+  // Create data URL / FormData / local parse strategy
+  let fileData: string | FormData | undefined;
+  let useFormData = selectedFile.size > LARGE_THRESHOLD;
+  let localLightParsed: any = null;
+  let psdData: any; // unified declaration to avoid redeclare/hoist issues
+  if (selectedFile.size > EXTREME_THRESHOLD) {
+        try {
+          console.log('🧪 Parse leve local (EXTREME_THRESHOLD)');
+          const arrayBuf = await selectedFile.arrayBuffer();
+            const u8 = new Uint8Array(arrayBuf);
+    // Lazy load ag-psd only when needed to reduce initial bundle size
+    const { readPsd } = await import('ag-psd');
+    const psd = readPsd(u8, { skipCompositeImageData: true, skipLayerImageData: true } as any);
+            const layers = (psd.children || []).slice(0, 50).map((l:any)=>({
+              name: l.name || 'Layer',
+              type: l.type || 'unknown',
+              left: l.left||0, top: l.top||0, right: l.right||0, bottom: l.bottom||0,
+              width: (l.right||0)-(l.left||0), height: (l.bottom||0)-(l.top||0),
+              visible: l.visible !== false
+            }));
+            localLightParsed = { fileName: selectedFile.name, width: psd.width, height: psd.height, layers, metadata: { localLight: true, originalSize: selectedFile.size } };
+            console.log('✅ Parse leve local concluído');
+        } catch (e) {
+          console.warn('⚠️ Falha parse leve local, fallback backend', e);
+        }
+      }
 
-      if (useFormData) {
+  if (localLightParsed) {
+        psdData = localLightParsed; // direto sem parse backend
+        setConversionProgress(40);
+      } else if (useFormData) {
         console.log('📦 Arquivo muito grande, usando FormData para upload direto...');
         console.log('💡 Isso pode levar alguns minutos para arquivos grandes');
         setConversionProgress(15);
@@ -191,14 +226,61 @@ function PSDConverterPage() {
 
       setConversionProgress(25);
 
-      let psdData: any;
-      if(chunkMode){
+  // Only proceed with backend parsing if we still don't have psdData
+      if(!psdData && chunkMode){
         console.log('🚚 Usando upload chunked');
         setConversionProgress(30);
+        if(useDurableObject){
+          // Durable Object flow
+          const name = doUploadName || `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+          if(!doUploadName) setDoUploadName(name);
+          const initRes = await fetch(`${API_BASE_URL}/api/do-upload/${name}/init`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fileName: selectedFile.name, expectedSize: selectedFile.size, encoding: useGzip ? 'gzip':'none' }) });
+          const initJson = await initRes.json();
+          if(!initJson.success) throw new Error('Falha init DO');
+          const reader = selectedFile.stream().getReader();
+          const chunkSize = 128*1024;
+          let received=0; let idx=0;
+          while(true){
+            const { value, done } = await reader.read();
+            if(done) break;
+            let start=0;
+            while(start < value.length){
+              const slice = value.slice(start, start+chunkSize);
+              let payload = slice;
+              if(useGzip){
+                try { // compress
+                  // @ts-ignore
+                  const cs = new CompressionStream('gzip');
+                  // @ts-ignore
+                  const compressed = new Response(new Blob([slice]).stream().pipeThrough(cs));
+                  payload = new Uint8Array(await compressed.arrayBuffer());
+                } catch {}
+              }
+              const b64 = btoa(String.fromCharCode(...payload));
+              const append = await fetch(`${API_BASE_URL}/api/do-upload/${name}/append`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ chunkBase64: b64 }) });
+              const aJson = await append.json();
+              if(!aJson.success) throw new Error('Falha append DO: '+aJson.error);
+              received = aJson.totalSize || received + slice.length;
+              if(aJson.progress != null){
+                setUploadProgress(aJson.progress);
+                setConversionProgress(Math.min(60, Math.round(aJson.progress*40)));
+              }
+              idx++; start += chunkSize;
+            }
+          }
+          // complete
+          const comp = await fetch(`${API_BASE_URL}/api/do-upload/${name}/complete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({}) });
+          const compJson = await comp.json();
+          if(!compJson.success) throw new Error('Falha complete DO: ' + compJson.error);
+          psdData = compJson.data;
+          setFallbackNoCanvas(!!compJson.fallbackNoCanvas || !!psdData?.metadata?.fallbackNoCanvas);
+          setUploadMetrics(compJson.metrics);
+        } else {
   const initRes = await fetch(`${API_BASE_URL}/api/psd-chunks/init`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fileName: selectedFile.name, expectedSize: selectedFile.size, encoding: useGzip ? 'gzip':'none' }) });
         const initJson = await initRes.json();
         if(!initJson.success) throw new Error('Falha init chunked');
-        const uploadIdLocal = initJson.uploadId;
+  const uploadIdLocal = initJson.uploadId;
+  setUploadId(uploadIdLocal);
   const chunkSize = 128*1024; // 128KB para reduzir memória/transient CPU
         let idx=0;
         const reader = selectedFile.stream().getReader();
@@ -290,19 +372,22 @@ function PSDConverterPage() {
         }
         polling = false;
         setConversionProgress(65);
-        const completeRes = await fetch(`${API_BASE_URL}/api/psd-chunks/complete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId: uploadIdLocal }) });
-        const completeJson = await completeRes.json();
+  const completeRes = await fetch(`${API_BASE_URL}/api/psd-chunks/complete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId: uploadIdLocal }) });
+  const completeJson = await completeRes.json();
         if(!completeJson.success) throw new Error('Falha complete: '+ completeJson.error);
         psdData = completeJson.data;
         setFallbackNoCanvas(!!completeJson.fallbackNoCanvas || !!psdData?.metadata?.fallbackNoCanvas);
         setUploadMetrics(completeJson.metrics);
-      } else {
+  }
+  } else if (!psdData) {
         // Step 2: Parse PSD file using backend (single request)
         let parseResponse: Response;
         if (useFormData) {
+          if(!fileData) throw new Error('Internal: fileData ausente (FormData)');
           console.log('📤 Enviando arquivo para processamento (FormData)...');
           parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, { method: 'POST', body: fileData as FormData });
         } else {
+          if(!fileData) throw new Error('Internal: fileData ausente (data URL)');
           console.log('📤 Enviando data URL para processamento...');
           parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filePath: fileData as string, includeImageData: false }) });
         }
@@ -312,6 +397,13 @@ function PSDConverterPage() {
             console.log('🔁 Revertendo para chunked (413)');
             setChunkMode(true);
             // Re-run conversion logic in chunk mode
+            setIsConverting(false);
+            setTimeout(()=>handleConvert(),50);
+            return;
+          }
+          // Detect custom direct formdata rejection
+          if (parseResponse.status === 413) {
+            setChunkMode(true);
             setIsConverting(false);
             setTimeout(()=>handleConvert(),50);
             return;
@@ -334,7 +426,7 @@ function PSDConverterPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          psdData: psdData.data || psdData,
+          psdData: (psdData && psdData.data) ? psdData.data : psdData,
           targetFramework: selectedFramework,
           responsive,
           semantic,
@@ -356,7 +448,7 @@ function PSDConverterPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          psdData: psdData,
+          psdData: (psdData && psdData.data) ? psdData.data : psdData,
           htmlContent: conversionResult.html,
           cssContent: conversionResult.css,
           threshold: 0.95
@@ -507,6 +599,10 @@ function PSDConverterPage() {
               <h3 className="text-lg font-medium mb-4">Opções Avançadas</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <label className="flex items-center space-x-2">
+                  <input type="checkbox" checked={useDurableObject} onChange={e=>setUseDurableObject(e.target.checked)} className="rounded" />
+                  <span>Modo Durable Object</span>
+                </label>
+                <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     checked={responsive}
@@ -547,16 +643,46 @@ function PSDConverterPage() {
                 </label>
                 {chunkMode && (
                   <Button type="button" variant="outline" disabled={partialLoading} onClick={async ()=>{
-                    if(!selectedFile || !uploadProgress || uploadProgress<=0) return;
+                    if(useDurableObject){
+                      if(!doUploadName){ alert('Sem sessão DO'); return; }
+                      setPartialLoading(true);
+                      try {
+                        const resp = await fetch(`${API_BASE_URL}/api/do-upload/${doUploadName}/partial`, { method:'POST', headers:{'Content-Type':'application/json'}, body: '{}' });
+                        const js = await resp.json();
+                        if(js.success) setPartialPreview(js.data); else alert('Erro partial DO: '+js.error);
+                      } finally { setPartialLoading(false); }
+                      return;
+                    }
+                    if(!uploadId) { alert('Sem uploadId ativo'); return; }
                     setPartialLoading(true);
                     try {
-                      // precisa de uploadId, não armazenamos; para simplificar omitimos até extensão futura
-                      // Placeholder: futura implementação exige guardar uploadId
-                      alert('Partial parse via API requer armazenar uploadId no estado (extensão futura).');
+                      const resp = await fetch(`${API_BASE_URL}/api/psd-chunks/partial`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId }) });
+                      if(!resp.ok){ alert('Falha partial parse'); return; }
+                      const js = await resp.json();
+                      if(js.success){ setPartialPreview(js.data); }
+                      else alert('Erro partial: '+ js.error);
                     } finally {
                       setPartialLoading(false);
                     }
                   }}>Pré-visualizar Parcial</Button>
+                )}
+                {chunkMode && uploadId && (
+                  <Button type="button" variant="destructive" className="ml-2" onClick={async ()=>{
+                    if(!confirm('Abortar upload atual?')) return;
+                    try {
+                      await fetch(`${API_BASE_URL}/api/psd-chunks/abort`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId }) });
+                      setUploadId(null); setUploadProgress(null); setPartialPreview(null); setIsConverting(false);
+                    } catch {}
+                  }}>Abortar</Button>
+                )}
+                {chunkMode && useDurableObject && doUploadName && (
+                  <Button type="button" variant="destructive" className="ml-2" onClick={async ()=>{
+                    if(!confirm('Abortar upload DO?')) return;
+                    try {
+                      await fetch(`${API_BASE_URL}/api/do-upload/${doUploadName}/abort`, { method:'POST', headers:{'Content-Type':'application/json'}, body: '{}' });
+                      setDoUploadName(null); setUploadProgress(null); setPartialPreview(null); setIsConverting(false);
+                    } catch {}
+                  }}>Abortar DO</Button>
                 )}
               </div>
           </CardContent>
@@ -754,6 +880,17 @@ function PSDConverterPage() {
               </Card>
             </TabsContent>
           </Tabs>
+        )}
+        {!conversionResult && partialPreview && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Pré-visualização Parcial (Camadas iniciais)</CardTitle>
+              <CardDescription>{partialPreview.fileName} • {partialPreview.width}x{partialPreview.height}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <pre className="text-xs max-h-64 overflow-auto bg-gray-900 text-gray-100 p-3 rounded">{JSON.stringify(partialPreview.layers || partialPreview.children || partialPreview, null, 2)}</pre>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

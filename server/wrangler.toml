@@ -16,10 +16,30 @@ binding = "ASSETS"
 tag = "v1"
 new_classes = [ "Workflow" ]
 
+[[migrations]]
+tag = "v2"
+new_classes = [ "UploadCoordinator" ]
+
+[[migrations]]
+tag = "v3"
+new_classes = [ "PsdWorkflow" ]
+
 [durable_objects]
 [[durable_objects.bindings]]
 name = "DECO_CHAT_WORKFLOW_DO"
 class_name = "Workflow"
+
+[[durable_objects.bindings]]
+name = "UPLOAD_COORDINATOR_DO"
+class_name = "UploadCoordinator"
+
+[[durable_objects.bindings]]
+name = "PSD_WORKFLOW_DO"
+class_name = "PsdWorkflow"
+
+[[r2_buckets]]
+binding = "PSD_UPLOADS"
+bucket_name = "psd-uploads"
 
 [[rules]]
 type = "Text"

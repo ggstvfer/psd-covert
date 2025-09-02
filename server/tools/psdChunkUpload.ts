@@ -17,6 +17,8 @@ interface UploadSession {
   startedAt: number;
 }
 
+// TODO: Replace with Durable Object (per uploadId) or R2 for persistence & lower memory footprint.
+// Each session would map to a Durable Object instance enabling streaming writes & partial parsing state.
 const inMemoryChunks: Record<string, UploadSession> = {};
 
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
@@ -50,7 +52,7 @@ export const createChunkAppendTool = (env: Env) => createTool({
   inputSchema: z.object({ uploadId: z.string(), chunkBase64: z.string(), index: z.number().optional() }),
   outputSchema: z.object({ success: z.boolean(), received: z.number().optional(), totalSize: z.number().optional(), progress: z.number().optional(), chunkIndex: z.number().optional(), error: z.string().optional(), aborted: z.boolean().optional() }),
   execute: async (ctx) => {
-    const { uploadId, chunkBase64 } = (ctx as any).input || ctx;
+  const { uploadId, chunkBase64 } = (ctx as any).input || ctx;
     const state = inMemoryChunks[uploadId];
     if (!state) return { success: false, error: 'Invalid uploadId' };
     if (state.aborted) return { success: false, error: 'Upload aborted', aborted: true };

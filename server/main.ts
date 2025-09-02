@@ -12,9 +12,12 @@ import { createPsdParserTool, createPsdUploadTool } from "./tools/psdParser.ts";
 import { BUILD_VERSION } from './tools/psdParser.ts';
 import { psdChunkTools, createChunkInitTool, createChunkAppendTool, createChunkCompleteTool, createChunkAbortTool } from './tools/psdChunkUpload.ts';
 import { createChunkStatusTool } from './tools/psdChunkUpload.ts';
+import { createChunkPartialTool } from './tools/psdChunkUpload.ts';
 import { createPsdToHtmlTool } from "./tools/psdConverter.ts";
 import { createVisualValidationTool } from "./tools/psdValidator.ts";
 import { views } from "./views.ts";
+import { UploadCoordinator } from './uploadCoordinator.ts';
+import { PsdWorkflow } from './workflowPsd.ts';
 
 /**
  * This Env type is the main context object that is passed to
@@ -102,11 +105,12 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     try {
       let filePath: string;
       let includeImageData = false;
+  const MAX_DIRECT_BYTES = 4 * 1024 * 1024; // keep in sync with similar guard below
 
       // Check if request is FormData or JSON
       const contentType = req.headers.get('content-type') || '';
 
-      if (contentType.includes('multipart/form-data')) {
+  if (contentType.includes('multipart/form-data')) {
         // Handle FormData upload
         const formData = await req.formData();
         const file = formData.get('file') as File;
@@ -116,11 +120,24 @@ const handleApiRoutes = async (req: Request, env: Env) => {
           throw new Error('No file provided in FormData');
         }
 
-        // Convert file to data URL
+        // Enforce small size for direct base64 path to avoid memory spikes
+        if (file.size > MAX_DIRECT_BYTES) {
+          return new Response(JSON.stringify({ success: false, error: 'FILE_TOO_LARGE_DIRECT_FORMDATA: use chunked upload endpoint (/api/psd-chunks/*)' }), { status: 413, headers: JSON_HEADERS });
+        }
+
+        // Convert file to data URL (only for small files <= 4MB)
         const arrayBuffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const u8 = new Uint8Array(arrayBuffer);
+        // Build base64 without spreading huge arrays that could spike memory
+        let binary = '';
+        const CHUNK = 0x8000; // 32KB slices
+        for (let i = 0; i < u8.length; i += CHUNK) {
+          binary += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK) as any);
+        }
+        const base64 = btoa(binary);
         filePath = `data:${file.type};base64,${base64}`;
         includeImageData = includeImageDataStr === 'true';
+        binary = '' as any; // release
 
         console.log(`📁 Received file via FormData: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
       } else {
@@ -131,7 +148,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       }
 
       // Hard guard: if base64/data URL size > 4MB or file larger than 4MB via FormData, force chunked path
-      const MAX_DIRECT_BYTES = 4 * 1024 * 1024; // 4MB
+  // Guard already defined above; reused here for JSON path
       if (filePath.startsWith('data:')) {
         // Estimate length
         const b64 = filePath.split(',')[1] || '';
@@ -230,10 +247,47 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         const res = await tool.execute({ input: body } as any);
         return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
       }
+      if (url.pathname === '/api/psd-chunks/partial' && req.method === 'POST') {
+        const body = await req.json();
+        const tool = createChunkPartialTool(env);
+        const res = await tool.execute({ input: body } as any);
+        return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
+      }
       return new Response(JSON.stringify({ success: false, error: 'Not found' }), { status: 404, headers: JSON_HEADERS });
     } catch (e) {
       return new Response(JSON.stringify({ success: false, error: e instanceof Error ? e.message : 'Unknown error' }), { status: 500, headers: JSON_HEADERS });
     }
+  }
+
+  // Durable Object based upload (experimental)
+  if (url.pathname.startsWith('/api/do-upload/')) {
+    const parts = url.pathname.split('/'); // /api/do-upload/<id>/<action>
+    const action = parts.pop()!;
+    const uploadName = parts.pop()!; // treat as DO name
+    const id = (env as any).UPLOAD_COORDINATOR_DO.idFromName(uploadName);
+    const stub = (env as any).UPLOAD_COORDINATOR_DO.get(id);
+    const doUrl = new URL(`https://do.fake/${action}`);
+    const body = req.method === 'POST' ? await req.text() : undefined;
+    const doResp = await stub.fetch(doUrl.toString(), { method: req.method, body, headers: req.headers });
+    // Add CORS headers
+    const respHeaders = new Headers(doResp.headers);
+    respHeaders.set('Access-Control-Allow-Origin','*');
+    return new Response(doResp.body, { status: doResp.status, headers: respHeaders });
+  }
+
+  // PSD Workflow DO endpoints: /api/psd-workflow/<name>/<action>
+  if (url.pathname.startsWith('/api/psd-workflow/')) {
+    const parts = url.pathname.split('/');
+    const action = parts.pop()!;
+    const wfName = parts.pop()!;
+    const id = (env as any).PSD_WORKFLOW_DO.idFromName(wfName);
+    const stub = (env as any).PSD_WORKFLOW_DO.get(id);
+    const wfUrl = new URL(`https://wf.fake/${action}`);
+    const body = req.method === 'POST' ? await req.text() : undefined;
+    const wfResp = await stub.fetch(wfUrl.toString(), { method: req.method, body, headers: req.headers });
+    const respHeaders = new Headers(wfResp.headers);
+    respHeaders.set('Access-Control-Allow-Origin','*');
+    return new Response(wfResp.body, { status: wfResp.status, headers: respHeaders });
   }
 
   // Validate PSD API
