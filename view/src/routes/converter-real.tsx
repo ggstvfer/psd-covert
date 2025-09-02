@@ -226,14 +226,13 @@ export default function ConverterReal() {
     return styles;
   }, []);
 
-  const generateHTMLFromLayers = useCallback((layers: any[], canvasWidth: number, canvasHeight: number, compositeImage?: string) => {
+  const generateHTMLFromLayers = useCallback((layers: any[], _canvasWidth: number, _canvasHeight: number, compositeImage?: string) => {
     console.log('🏗️ Gerando HTML a partir das camadas reais...');
     
     const generateLayerHTML = (layer: any): string => {
       if (!layer.visible) return '';
       
       const tag = getHTMLTag(layer.type);
-      const styles = generateLayerCSS(layer, canvasWidth, canvasHeight);
       const className = `psd-layer-${layer.id}`;
       
       let content = '';
@@ -430,7 +429,7 @@ ${sortedLayers.map(layer => generateLayerHTML(layer)).join('\n')}
       setConversionProgress(40);
 
       console.log('🏗️ Gerando HTML/CSS baseado nas camadas reais...');
-      const html = generateHTMLFromLayers(psdData.layers, psdData.width, psdData.height, psdData.compositeImage);
+      const html = generateHTMLFromLayers(psdData.layers, psdData.width, psdData.height, psdData.compositeImage || undefined);
       setConversionProgress(70);
 
       const css = generateCSS(psdData.layers, psdData.width, psdData.height);
