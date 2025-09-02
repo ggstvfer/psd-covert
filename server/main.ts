@@ -9,6 +9,7 @@ import { type Env as DecoEnv, StateSchema } from "./deco.gen.ts";
 
 import { workflows } from "./workflows/index.ts";
 import { createPsdParserTool, createPsdUploadTool } from "./tools/psdParser.ts";
+import { psdChunkTools, createChunkInitTool, createChunkAppendTool, createChunkCompleteTool, createChunkAbortTool } from './tools/psdChunkUpload.ts';
 import { createPsdToHtmlTool } from "./tools/psdConverter.ts";
 import { createVisualValidationTool } from "./tools/psdValidator.ts";
 import { views } from "./views.ts";
@@ -176,6 +177,43 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     }
   }
 
+  // Chunked upload APIs
+  if (url.pathname.startsWith('/api/psd-chunks/')) {
+    const JSON_HEADERS = {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    };
+    try {
+      if (url.pathname === '/api/psd-chunks/init' && req.method === 'POST') {
+        const body = await req.json();
+        const tool = createChunkInitTool(env);
+        const res = await tool.execute({ input: body } as any);
+        return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
+      }
+      if (url.pathname === '/api/psd-chunks/append' && req.method === 'POST') {
+        const body = await req.json();
+        const tool = createChunkAppendTool(env);
+        const res = await tool.execute({ input: body } as any);
+        return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
+      }
+      if (url.pathname === '/api/psd-chunks/complete' && req.method === 'POST') {
+        const body = await req.json();
+        const tool = createChunkCompleteTool(env);
+        const res = await tool.execute({ input: body } as any);
+        return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
+      }
+      if (url.pathname === '/api/psd-chunks/abort' && req.method === 'POST') {
+        const body = await req.json();
+        const tool = createChunkAbortTool(env);
+        const res = await tool.execute({ input: body } as any);
+        return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
+      }
+      return new Response(JSON.stringify({ success: false, error: 'Not found' }), { status: 404, headers: JSON_HEADERS });
+    } catch (e) {
+      return new Response(JSON.stringify({ success: false, error: e instanceof Error ? e.message : 'Unknown error' }), { status: 500, headers: JSON_HEADERS });
+    }
+  }
+
   // Validate PSD API
   if (url.pathname === '/api/validate-psd' && req.method === 'POST') {
     try {
@@ -231,6 +269,10 @@ const runtime = withRuntime<Env, typeof StateSchema>({
   tools: [
     createPsdParserTool,
     createPsdUploadTool,
+  createChunkInitTool,
+  createChunkAppendTool,
+  createChunkCompleteTool,
+  createChunkAbortTool,
     createPsdToHtmlTool,
     createVisualValidationTool
   ],
