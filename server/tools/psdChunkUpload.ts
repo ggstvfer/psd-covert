@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createTool } from '@deco/workers-runtime/mastra';
 import type { Env } from '../main.ts';
-import { parsePSDFromBuffer } from './psdParser.ts';
+import { parsePSDFromBuffer, lightParsePSD } from './psdParser.ts';
 
 // Estado em memória (ephemeral) - para produção usar Durable Object / KV
 interface UploadSession {
@@ -186,10 +186,42 @@ export const createChunkAbortTool = (env: Env) => createTool({
   }
 });
 
+// Partial (light) parse of current accumulated chunks without finalizing session
+export const createChunkPartialTool = (env: Env) => createTool({
+  id: 'PARTIAL_CHUNKED_UPLOAD_PARSE',
+  description: 'Perform a light (header + first layers) parse of current uploaded data',
+  inputSchema: z.object({ uploadId: z.string() }),
+  outputSchema: z.object({ success: z.boolean(), data: z.any().optional(), receivedBytes: z.number().optional(), error: z.string().optional() }),
+  execute: async (ctx) => {
+    const { uploadId } = (ctx as any).input || ctx;
+    const state = inMemoryChunks[uploadId];
+    if(!state) return { success: false, error: 'Invalid uploadId' };
+    if(state.parts.length === 0) return { success: false, error: 'NO_DATA' };
+    try {
+      // Concat only first up to 2MB for speed
+      const cap = 2 * 1024 * 1024;
+      const totalSize = Math.min(state.size, cap);
+      const buf = new Uint8Array(totalSize);
+      let offset = 0;
+      for(const part of state.parts){
+        if(offset >= cap) break;
+        const slice = part.byteLength + offset > cap ? part.subarray(0, cap - offset) : part;
+        buf.set(slice, offset);
+        offset += slice.byteLength;
+      }
+      const light = await lightParsePSD(buf);
+      return { success: true, data: { fileName: state.fileName, ...light }, receivedBytes: state.size };
+    } catch (e:any) {
+      return { success: false, error: e.message || 'Partial parse failed' };
+    }
+  }
+});
+
 export const psdChunkTools = (env: Env) => [
   createChunkInitTool(env),
   createChunkAppendTool(env),
   createChunkCompleteTool(env),
   createChunkAbortTool(env),
+  createChunkPartialTool(env),
   createChunkStatusTool(env)
 ];

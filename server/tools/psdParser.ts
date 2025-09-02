@@ -80,6 +80,18 @@ const MAX_LAYERS = 20;
  */
 const MAX_DEPTH = 2;
 
+// Light parse (header + limited layer names) used for multi-phase approach
+export async function lightParsePSD(buffer: Uint8Array): Promise<{ width:number; height:number; layers: any[] }> {
+  const psd = readPsd(buffer as any, { skipCompositeImageData: true, skipLayerImageData: true } as any);
+  const children = (psd.children || []).slice(0, 10).map((l:any)=>({
+    name: l.name || 'Layer',
+    type: l.type || 'unknown',
+    dims: { w: (l.right||0)-(l.left||0), h: (l.bottom||0)-(l.top||0) },
+    hasChildren: Array.isArray(l.children) && l.children.length>0
+  }));
+  return { width: psd.width, height: psd.height, layers: children };
+}
+
 /**
  * Process PSD file with optimizations
  */
@@ -308,6 +320,27 @@ export const createPsdParserTool = (env: Env) =>
       }
     },
   });
+
+// Partial/light parser tool (phase 1)
+export const createPsdLightParserTool = (env: Env) => createTool({
+  id: 'PARSE_PSD_PARTIAL',
+  description: 'Lightweight PSD parse: header + first layer names (no image data)',
+  inputSchema: z.object({ filePath: z.string() }),
+  outputSchema: z.object({ success: z.boolean(), data: z.any().optional(), error: z.string().optional() }),
+  execute: async (ctx) => {
+    const { filePath } = (ctx as any).input || ctx;
+    try {
+      const resp = await fetch(filePath);
+      if(!resp.ok) return { success: false, error: 'Fetch failed '+resp.status };
+      const buf = new Uint8Array(await resp.arrayBuffer());
+      if (buf.byteLength > MAX_FILE_SIZE) return { success: false, error: 'FILE_TOO_LARGE' };
+      const light = await lightParsePSD(buf);
+      return { success: true, data: { fileName: filePath.split('/').pop(), ...light } };
+    } catch (e:any) {
+      return { success: false, error: e.message || 'Unknown error' };
+    }
+  }
+});
 
 /**
  * Tool for uploading and parsing PSD files via API
@@ -643,6 +676,7 @@ function extractLayersFreeTier(
 export const psdTools = (env: Env) => [
   createPsdAnalyzeTool(env),
   createPsdParserTool(env),
+  createPsdLightParserTool(env),
   createPsdUploadTool(env),
   ...psdChunkTools(env),
 ];

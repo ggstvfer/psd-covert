@@ -86,11 +86,13 @@ function PSDConverterPage() {
   const [uploadSpeed, setUploadSpeed] = useState<number | null>(null); // bytes/sec
   const [uploadEta, setUploadEta] = useState<number | null>(null); // seconds
   const uploadSamplesRef = useRef<{ t: number; bytes: number }[]>([]);
+  const [useGzip, setUseGzip] = useState(true);
+  const [partialLoading, setPartialLoading] = useState(false);
 
-  // Decide chunk mode ( > 4MB )
+  // Decide chunk mode ( > 1MB ) para garantir chunked em arquivos grandes e médios
   useEffect(()=>{
     if(selectedFile){
-      setChunkMode(selectedFile.size > 4*1024*1024);
+      setChunkMode(selectedFile.size > 1*1024*1024);
     } else {
       setChunkMode(false);
     }
@@ -193,11 +195,11 @@ function PSDConverterPage() {
       if(chunkMode){
         console.log('🚚 Usando upload chunked');
         setConversionProgress(30);
-        const initRes = await fetch(`${API_BASE_URL}/api/psd-chunks/init`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fileName: selectedFile.name, expectedSize: selectedFile.size }) });
+  const initRes = await fetch(`${API_BASE_URL}/api/psd-chunks/init`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fileName: selectedFile.name, expectedSize: selectedFile.size, encoding: useGzip ? 'gzip':'none' }) });
         const initJson = await initRes.json();
         if(!initJson.success) throw new Error('Falha init chunked');
         const uploadIdLocal = initJson.uploadId;
-        const chunkSize = 256*1024; // 256KB
+  const chunkSize = 128*1024; // 128KB para reduzir memória/transient CPU
         let idx=0;
         const reader = selectedFile.stream().getReader();
         let received = 0;
@@ -246,7 +248,19 @@ function PSDConverterPage() {
             let start=0;
             while(start < value.length){
               const slice = value.slice(start, start+chunkSize);
-              const b64 = btoa(String.fromCharCode(...slice));
+              let payload = slice;
+              if(useGzip){
+                // compress slice via CompressionStream if available
+                try {
+                  // @ts-ignore
+                  const cs = new CompressionStream('gzip');
+                  // @ts-ignore
+                  const compressed = new Response(new Blob([slice]).stream().pipeThrough(cs));
+                  const arrBuf = await compressed.arrayBuffer();
+                  payload = new Uint8Array(arrBuf);
+                } catch {}
+              }
+              const b64 = btoa(String.fromCharCode(...payload));
               const appendRes = await fetch(`${API_BASE_URL}/api/psd-chunks/append`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId: uploadIdLocal, chunkBase64: b64, index: idx }) });
               const appendJson = await appendRes.json();
               if(!appendJson.success) throw new Error('Falha append chunk '+ idx + ': ' + appendJson.error);
@@ -521,6 +535,30 @@ function PSDConverterPage() {
                 </label>
               </div>
             </div>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={useGzip}
+                    onChange={e=>setUseGzip(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Compressão GZIP chunks</span>
+                </label>
+                {chunkMode && (
+                  <Button type="button" variant="outline" disabled={partialLoading} onClick={async ()=>{
+                    if(!selectedFile || !uploadProgress || uploadProgress<=0) return;
+                    setPartialLoading(true);
+                    try {
+                      // precisa de uploadId, não armazenamos; para simplificar omitimos até extensão futura
+                      // Placeholder: futura implementação exige guardar uploadId
+                      alert('Partial parse via API requer armazenar uploadId no estado (extensão futura).');
+                    } finally {
+                      setPartialLoading(false);
+                    }
+                  }}>Pré-visualizar Parcial</Button>
+                )}
+              </div>
           </CardContent>
         </Card>
 
