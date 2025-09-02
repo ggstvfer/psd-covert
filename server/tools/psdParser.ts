@@ -57,14 +57,16 @@ export const createPsdParserTool = (env: Env) =>
             throw new Error(`File too large: ${Math.round(fileSize / 1024 / 1024)}MB. Maximum allowed: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
           }
 
-          console.log(`📊 Processing base64 data: ${Math.round(fileSize / 1024 / 1024)}MB`);
+        console.log(`📊 Processing base64 data: ${Math.round(fileSize / 1024 / 1024)}MB`);
 
-          // Convert to Uint8Array in chunks to avoid memory spikes
-          const bytes = new Uint8Array(fileSize);
-          for (let i = 0; i < fileSize; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          buffer = bytes.buffer;
+        // Convert to Uint8Array in chunks to avoid memory spikes
+        console.log('🔄 Converting base64 to binary...');
+        const bytes = new Uint8Array(fileSize);
+        for (let i = 0; i < fileSize; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        buffer = bytes.buffer;
+        console.log('✅ Binary conversion completed');
         } else {
           // Handle regular file URL
           const response = await fetch(filePath);
@@ -88,6 +90,7 @@ export const createPsdParserTool = (env: Env) =>
         console.log(`📈 File size: ${Math.round(fileSize / 1024 / 1024)}MB`);
 
         // Parse PSD data with memory optimization
+        console.log('🎨 Starting PSD parsing with ag-psd...');
         const psdData = readPsd(new Uint8Array(buffer));
 
         // Clear buffer from memory as soon as possible
@@ -97,7 +100,7 @@ export const createPsdParserTool = (env: Env) =>
         console.log(`📚 Layers found: ${(psdData.children || []).length}`);
 
         // Extract layer information with optimization
-        const layers = extractLayersOptimized(psdData.children || [], includeImageData);
+        const layers = extractLayersOptimized(psdData.children || [], includeImageData, 5); // Reduced depth limit
 
         // Create summary JSON
         const psdSummary = {
@@ -248,16 +251,36 @@ export async function parsePSDFile(filePath: string, includeImageData = false) {
 /**
  * Optimized layer extraction with memory management
  */
-function extractLayersOptimized(layers: any[], includeImageData: boolean, maxDepth: number = 10, currentDepth: number = 0): any[] {
+function extractLayersOptimized(layers: any[], includeImageData: boolean, maxDepth: number = 5, currentDepth: number = 0, processedLayers: Set<string> = new Set()): any[] {
+  console.log(`🔄 Processing ${layers.length} layers at depth ${currentDepth}/${maxDepth}`);
+
   if (currentDepth >= maxDepth) {
     console.warn(`⚠️ Max depth reached at level ${currentDepth}, stopping recursion`);
     return [];
+  }
+
+  if (!Array.isArray(layers)) {
+    console.warn(`⚠️ Invalid layers array at depth ${currentDepth}:`, typeof layers);
+    return [];
+  }
+
+  // Limit total layers to prevent memory issues
+  if (layers.length > 200) {
+    console.warn(`⚠️ Too many layers (${layers.length}), limiting to first 100`);
+    layers = layers.slice(0, 100);
   }
 
   return layers
     .filter(layer => layer) // Remove null/undefined layers
     .map(layer => {
       try {
+        const layerKey = `${layer.name || 'unnamed'}_${currentDepth}`;
+        if (processedLayers.has(layerKey)) {
+          console.warn(`⚠️ Circular reference detected for layer: ${layerKey}`);
+          return null;
+        }
+        processedLayers.add(layerKey);
+
         const layerInfo: any = {
           name: layer.name || 'Unnamed Layer',
           type: layer.type || 'unknown',
@@ -336,11 +359,17 @@ function extractLayersOptimized(layers: any[], includeImageData: boolean, maxDep
 
         // Recursively process children with depth limit
         if (layer.children && Array.isArray(layer.children) && layer.children.length > 0) {
+          console.log(`📂 Layer "${layer.name}" has ${layer.children.length} children at depth ${currentDepth}`);
+          if (layer.children.length > 100) {
+            console.warn(`⚠️ Too many children (${layer.children.length}), limiting to first 50`);
+            layer.children = layer.children.slice(0, 50);
+          }
           layerInfo.children = extractLayersOptimized(
             layer.children,
             includeImageData,
             maxDepth,
-            currentDepth + 1
+            currentDepth + 1,
+            processedLayers
           );
         }
 

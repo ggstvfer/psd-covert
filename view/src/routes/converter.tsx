@@ -152,6 +152,7 @@ function PSDConverterPage() {
 
       if (useFormData) {
         console.log('📦 Arquivo muito grande, usando FormData para upload direto...');
+        console.log('💡 Isso pode levar alguns minutos para arquivos grandes');
         setConversionProgress(15);
 
         // Use FormData for large files to avoid data URL overhead
@@ -177,12 +178,14 @@ function PSDConverterPage() {
 
       if (useFormData) {
         // Use FormData upload for large files
+        console.log('📤 Enviando arquivo para processamento...');
         parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
           method: 'POST',
           body: fileData as FormData
         });
       } else {
         // Use JSON with data URL for smaller files
+        console.log('📤 Enviando data URL para processamento...');
         parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
           method: 'POST',
           headers: {
@@ -195,11 +198,14 @@ function PSDConverterPage() {
         });
       }
 
+      console.log('⏳ Aguardando resposta do servidor...');
+
       if (!parseResponse.ok) {
         const errorText = await parseResponse.text();
         throw new Error(`Failed to parse PSD file: ${parseResponse.status} ${errorText}`);
       }
 
+      console.log('📥 Recebendo dados do PSD...');
       const psdData = await parseResponse.json();
       console.log('✅ PSD parsed successfully:', psdData);
       setConversionProgress(50);
