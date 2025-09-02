@@ -1,5 +1,5 @@
 import { createRoute, type RootRoute } from "@tanstack/react-router";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, FileImage, Loader, CheckCircle, AlertCircle, Eye, Download, Code, Palette, Smartphone, Globe, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,6 +79,22 @@ function PSDConverterPage() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [conversionProgress, setConversionProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [chunkMode, setChunkMode] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [fallbackNoCanvas, setFallbackNoCanvas] = useState<boolean | null>(null);
+  const [uploadMetrics, setUploadMetrics] = useState<any | null>(null);
+  const [uploadSpeed, setUploadSpeed] = useState<number | null>(null); // bytes/sec
+  const [uploadEta, setUploadEta] = useState<number | null>(null); // seconds
+  const uploadSamplesRef = useRef<{ t: number; bytes: number }[]>([]);
+
+  // Decide chunk mode ( > 4MB )
+  useEffect(()=>{
+    if(selectedFile){
+      setChunkMode(selectedFile.size > 4*1024*1024);
+    } else {
+      setChunkMode(false);
+    }
+  },[selectedFile]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,40 +189,127 @@ function PSDConverterPage() {
 
       setConversionProgress(25);
 
-      // Step 2: Parse PSD file using backend
-      let parseResponse: Response;
+      let psdData: any;
+      if(chunkMode){
+        console.log('🚚 Usando upload chunked');
+        setConversionProgress(30);
+        const initRes = await fetch(`${API_BASE_URL}/api/psd-chunks/init`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fileName: selectedFile.name, expectedSize: selectedFile.size }) });
+        const initJson = await initRes.json();
+        if(!initJson.success) throw new Error('Falha init chunked');
+        const uploadIdLocal = initJson.uploadId;
+        const chunkSize = 256*1024; // 256KB
+        let idx=0;
+        const reader = selectedFile.stream().getReader();
+        let received = 0;
+        const expected = selectedFile.size;
 
-      if (useFormData) {
-        // Use FormData upload for large files
-        console.log('📤 Enviando arquivo para processamento...');
-        parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
-          method: 'POST',
-          body: fileData as FormData
-        });
+        // Polling de status (caso futuramente haja upload paralelo ou para suavizar progressão)
+        let polling = true;
+        const poll = async () => {
+          if(!polling) return;
+          try {
+            const resp = await fetch(`${API_BASE_URL}/api/psd-chunks/status`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId: uploadIdLocal }) });
+            if(resp.ok){
+              const js = await resp.json();
+              if(js.success && js.progress != null){
+                setUploadProgress(js.progress);
+                // Register sample for speed calc
+                if(js.receivedBytes){
+                  const now = Date.now();
+                  uploadSamplesRef.current.push({ t: now, bytes: js.receivedBytes });
+                  // keep last 8s
+                  uploadSamplesRef.current = uploadSamplesRef.current.filter(s => now - s.t <= 8000);
+                  if(uploadSamplesRef.current.length > 1){
+                    const first = uploadSamplesRef.current[0];
+                    const last = uploadSamplesRef.current[uploadSamplesRef.current.length -1];
+                    const dt = (last.t - first.t)/1000;
+                    if(dt > 0){
+                      const db = last.bytes - first.bytes;
+                      const speed = db / dt; // bytes per second
+                      setUploadSpeed(speed);
+                      if(expected){
+                        const remain = expected - last.bytes;
+                        if(remain > 0) setUploadEta(remain / speed);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch {}
+          if(polling) setTimeout(poll, 1000);
+        };
+        poll();
+        while(true){
+          const { value, done } = await reader.read();
+            if(done) break;
+            let start=0;
+            while(start < value.length){
+              const slice = value.slice(start, start+chunkSize);
+              const b64 = btoa(String.fromCharCode(...slice));
+              const appendRes = await fetch(`${API_BASE_URL}/api/psd-chunks/append`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId: uploadIdLocal, chunkBase64: b64, index: idx }) });
+              const appendJson = await appendRes.json();
+              if(!appendJson.success) throw new Error('Falha append chunk '+ idx + ': ' + appendJson.error);
+              received = appendJson.totalSize || received + slice.length;
+              if(appendJson.progress != null){
+                setUploadProgress(appendJson.progress);
+                setConversionProgress( Math.min(60, Math.round(appendJson.progress*40)) );
+                // sample progress for speed if append gives enough info
+                const now = Date.now();
+                uploadSamplesRef.current.push({ t: now, bytes: received });
+                uploadSamplesRef.current = uploadSamplesRef.current.filter(s => now - s.t <= 8000);
+                if(uploadSamplesRef.current.length > 1){
+                  const first = uploadSamplesRef.current[0];
+                  const last = uploadSamplesRef.current[uploadSamplesRef.current.length -1];
+                  const dt = (last.t - first.t)/1000;
+                  if(dt>0){
+                    const db = last.bytes - first.bytes;
+                    const speed = db / dt;
+                    setUploadSpeed(speed);
+                    const remain = expected - last.bytes;
+                    if(remain>0) setUploadEta(remain / speed);
+                  }
+                }
+              }
+              idx++; start += chunkSize;
+            }
+        }
+        polling = false;
+        setConversionProgress(65);
+        const completeRes = await fetch(`${API_BASE_URL}/api/psd-chunks/complete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId: uploadIdLocal }) });
+        const completeJson = await completeRes.json();
+        if(!completeJson.success) throw new Error('Falha complete: '+ completeJson.error);
+        psdData = completeJson.data;
+        setFallbackNoCanvas(!!completeJson.fallbackNoCanvas || !!psdData?.metadata?.fallbackNoCanvas);
+        setUploadMetrics(completeJson.metrics);
       } else {
-        // Use JSON with data URL for smaller files
-        console.log('📤 Enviando data URL para processamento...');
-        parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            filePath: fileData as string,
-            includeImageData: false
-          })
-        });
+        // Step 2: Parse PSD file using backend (single request)
+        let parseResponse: Response;
+        if (useFormData) {
+          console.log('📤 Enviando arquivo para processamento (FormData)...');
+          parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, { method: 'POST', body: fileData as FormData });
+        } else {
+          console.log('📤 Enviando data URL para processamento...');
+          parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filePath: fileData as string, includeImageData: false }) });
+        }
+        if (!parseResponse.ok) {
+          if(parseResponse.status === 413){
+            // Switch to chunk mode automatically
+            console.log('🔁 Revertendo para chunked (413)');
+            setChunkMode(true);
+            // Re-run conversion logic in chunk mode
+            setIsConverting(false);
+            setTimeout(()=>handleConvert(),50);
+            return;
+          }
+          const errorText = await parseResponse.text();
+          throw new Error(`Failed to parse PSD file: ${parseResponse.status} ${errorText}`);
+        }
+        const parseJson = await parseResponse.json();
+        psdData = parseJson.data || parseJson;
+        setFallbackNoCanvas(!!psdData?.metadata?.fallbackNoCanvas);
       }
-
-      console.log('⏳ Aguardando resposta do servidor...');
-
-      if (!parseResponse.ok) {
-        const errorText = await parseResponse.text();
-        throw new Error(`Failed to parse PSD file: ${parseResponse.status} ${errorText}`);
-      }
-
-      console.log('📥 Recebendo dados do PSD...');
-      const psdData = await parseResponse.json();
+      console.log('📥 PSD parsed:', psdData);
       console.log('✅ PSD parsed successfully:', psdData);
       setConversionProgress(50);
 
@@ -239,7 +342,7 @@ function PSDConverterPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          psdData: psdData.data,
+          psdData: psdData,
           htmlContent: conversionResult.html,
           cssContent: conversionResult.css,
           threshold: 0.95
@@ -455,6 +558,19 @@ function PSDConverterPage() {
                   <span>{conversionProgress}%</span>
                 </div>
                 <Progress value={conversionProgress} className="w-full" />
+                {chunkMode && uploadProgress != null && (
+                  <div className="text-xs text-gray-500 space-y-0.5">
+                    <div>Upload: {(uploadProgress*100).toFixed(2)}%</div>
+                    {uploadSpeed != null && (
+                      <div>
+                        Vel: {(uploadSpeed/1024/1024).toFixed(2)} MB/s
+                        {uploadEta != null && uploadEta > 0 && (
+                          <span className="ml-2">ETA: {uploadEta > 60 ? (uploadEta/60).toFixed(1)+'m' : uploadEta.toFixed(0)+'s'}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -476,6 +592,7 @@ function PSDConverterPage() {
                   <CardTitle className="flex items-center gap-2">
                     <Eye className="w-5 h-5" />
                     Preview do Resultado
+                    {fallbackNoCanvas && <Badge variant="destructive">Fallback Canvas</Badge>}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -501,6 +618,7 @@ function PSDConverterPage() {
                     <span className="flex items-center gap-2">
                       <Code className="w-5 h-5" />
                       Código HTML
+                      {uploadMetrics && <Badge variant="outline" className="ml-2">{(uploadMetrics.totalSize/1024/1024).toFixed(1)}MB / {uploadMetrics.chunkCount} chunks</Badge>}
                     </span>
                     <Button
                       onClick={() => handleDownload('html')}

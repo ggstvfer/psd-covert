@@ -14,6 +14,7 @@ interface UploadSession {
   encoding?: 'none' | 'gzip';
   expectedSize?: number;
   chunkCount: number;
+  startedAt: number;
 }
 
 const inMemoryChunks: Record<string, UploadSession> = {};
@@ -37,7 +38,8 @@ export const createChunkInitTool = (env: Env) => createTool({
     cleanupExpired();
     const { fileName, encoding = 'none', expectedSize } = (ctx as any).input || ctx;
     const uploadId = crypto.randomUUID();
-    inMemoryChunks[uploadId] = { parts: [], size: 0, fileName, createdAt: Date.now(), firstChunkValidated: false, encoding, expectedSize, chunkCount: 0 };
+    const now = Date.now();
+    inMemoryChunks[uploadId] = { parts: [], size: 0, fileName, createdAt: now, startedAt: now, firstChunkValidated: false, encoding, expectedSize, chunkCount: 0 };
     return { success: true, uploadId, encoding, expectedSize };
   }
 });
@@ -102,7 +104,7 @@ export const createChunkCompleteTool = (env: Env) => createTool({
   id: 'COMPLETE_CHUNKED_UPLOAD',
   description: 'Finalize upload and parse PSD',
   inputSchema: z.object({ uploadId: z.string() }),
-  outputSchema: z.object({ success: z.boolean(), data: z.any().optional(), metrics: z.object({ totalSize: z.number(), chunkCount: z.number(), avgChunk: z.number(), durationMs: z.number() }).optional(), error: z.string().optional() }),
+  outputSchema: z.object({ success: z.boolean(), data: z.any().optional(), fallbackNoCanvas: z.boolean().optional(), metrics: z.object({ totalSize: z.number(), chunkCount: z.number(), avgChunk: z.number(), durationMs: z.number(), parseMs: z.number().optional(), totalSessionMs: z.number().optional() }).optional(), error: z.string().optional() }),
   execute: async (ctx) => {
     const { uploadId } = (ctx as any).input || ctx;
     const state = inMemoryChunks[uploadId];
@@ -114,14 +116,58 @@ export const createChunkCompleteTool = (env: Env) => createTool({
       let offset = 0;
       for (const part of state.parts) { total.set(part, offset); offset += part.byteLength; }
       delete inMemoryChunks[uploadId];
-      const startParse = Date.now();
-      const result = await parsePSDFromBuffer(total, state.fileName);
+  const startParse = Date.now();
+      let result = await parsePSDFromBuffer(total, state.fileName);
+      // Defensive extra fallback if production worker still has old parser (canvas error not handled)
+      if (!result.success && /Canvas not initialized/i.test(result.error || '')) {
+        try {
+          // Try manual fallback parse (skip image data)
+          const { readPsd } = await import('ag-psd');
+          const psdData: any = readPsd(total as any, { skipCompositeImageData: true, skipLayerImageData: true });
+          result = {
+            success: true,
+            data: {
+              fileName: state.fileName,
+              width: psdData.width,
+              height: psdData.height,
+              layers: (psdData.children || []).slice(0, 5).map((l: any) => ({
+                name: l.name || 'Layer',
+                type: l.type || 'unknown',
+                visible: l.visible !== false,
+                dimensions: { width: (l.right||0)-(l.left||0), height: (l.bottom||0)-(l.top||0) },
+                position: { left: l.left||0, top: l.top||0, right: l.right||0, bottom: l.bottom||0 }
+              })),
+              metadata: { fallbackNoCanvas: true }
+            }
+          } as any;
+        } catch (e) {
+          // ignore, keep original error
+        }
+      }
       const durationMs = Date.now() - startParse;
-      const metrics = { totalSize: total.byteLength, chunkCount: state.chunkCount, avgChunk: state.chunkCount ? Math.round(total.byteLength / state.chunkCount) : total.byteLength, durationMs };
-      return result.success ? { success: true, data: result.data, metrics } : { success: false, error: result.error };
+      const totalSessionMs = Date.now() - state.startedAt;
+      const fallbackNoCanvas = !!(result.success && (result as any).data?.metadata?.fallbackNoCanvas);
+      const metrics = { totalSize: total.byteLength, chunkCount: state.chunkCount, avgChunk: state.chunkCount ? Math.round(total.byteLength / state.chunkCount) : total.byteLength, durationMs, parseMs: durationMs, totalSessionMs };
+      return result.success ? { success: true, data: result.data, metrics, fallbackNoCanvas } : { success: false, error: result.error, metrics, fallbackNoCanvas };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Completion error' };
     }
+  }
+});
+
+// Status (polling) tool
+export const createChunkStatusTool = (env: Env) => createTool({
+  id: 'STATUS_CHUNKED_UPLOAD',
+  description: 'Get progress status of an in-progress chunked upload',
+  inputSchema: z.object({ uploadId: z.string() }),
+  outputSchema: z.object({ success: z.boolean(), uploadId: z.string().optional(), fileName: z.string().optional(), receivedBytes: z.number().optional(), expectedSize: z.number().optional(), progress: z.number().optional(), chunkCount: z.number().optional(), startedAt: z.number().optional(), elapsedMs: z.number().optional(), error: z.string().optional(), aborted: z.boolean().optional() }),
+  execute: async (ctx) => {
+    const { uploadId } = (ctx as any).input || ctx;
+    const state = inMemoryChunks[uploadId];
+    if (!state) return { success: false, error: 'Invalid uploadId' };
+    if (state.aborted) return { success: false, error: 'Upload aborted', aborted: true };
+    const progress = state.expectedSize ? state.size / state.expectedSize : undefined;
+    return { success: true, uploadId, fileName: state.fileName, receivedBytes: state.size, expectedSize: state.expectedSize, progress, chunkCount: state.chunkCount, startedAt: state.startedAt, elapsedMs: Date.now() - state.startedAt };
   }
 });
 
@@ -144,5 +190,6 @@ export const psdChunkTools = (env: Env) => [
   createChunkInitTool(env),
   createChunkAppendTool(env),
   createChunkCompleteTool(env),
-  createChunkAbortTool(env)
+  createChunkAbortTool(env),
+  createChunkStatusTool(env)
 ];

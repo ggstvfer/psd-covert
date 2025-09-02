@@ -9,7 +9,9 @@ import { type Env as DecoEnv, StateSchema } from "./deco.gen.ts";
 
 import { workflows } from "./workflows/index.ts";
 import { createPsdParserTool, createPsdUploadTool } from "./tools/psdParser.ts";
+import { BUILD_VERSION } from './tools/psdParser.ts';
 import { psdChunkTools, createChunkInitTool, createChunkAppendTool, createChunkCompleteTool, createChunkAbortTool } from './tools/psdChunkUpload.ts';
+import { createChunkStatusTool } from './tools/psdChunkUpload.ts';
 import { createPsdToHtmlTool } from "./tools/psdConverter.ts";
 import { createVisualValidationTool } from "./tools/psdValidator.ts";
 import { views } from "./views.ts";
@@ -92,6 +94,10 @@ const handleApiRoutes = async (req: Request, env: Env) => {
   };
 
   // Parse PSD API
+  if (url.pathname === '/api/version' && req.method === 'GET') {
+    return new Response(JSON.stringify({ success: true, buildVersion: BUILD_VERSION, ts: Date.now() }), { headers: JSON_HEADERS });
+  }
+
   if (url.pathname === '/api/parse-psd' && req.method === 'POST') {
     try {
       let filePath: string;
@@ -124,6 +130,18 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         includeImageData = body.includeImageData || false;
       }
 
+      // Hard guard: if base64/data URL size > 4MB or file larger than 4MB via FormData, force chunked path
+      const MAX_DIRECT_BYTES = 4 * 1024 * 1024; // 4MB
+      if (filePath.startsWith('data:')) {
+        // Estimate length
+        const b64 = filePath.split(',')[1] || '';
+        // Base64 expansion ~4/3
+        const approxBytes = Math.floor(b64.length * 0.75);
+        if (approxBytes > MAX_DIRECT_BYTES) {
+          return new Response(JSON.stringify({ success: false, error: 'FILE_TOO_LARGE_DIRECT: use chunked upload endpoint (/api/psd-chunks/*)' }), { status: 413, headers: JSON_HEADERS });
+        }
+      }
+
       const parserTool = createPsdParserTool(env);
       const result = await parserTool.execute({
         input: {
@@ -132,9 +150,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         }
       } as any);
 
-      return new Response(JSON.stringify(result), {
-        headers: JSON_HEADERS
-      });
+  return new Response(JSON.stringify(result), { headers: JSON_HEADERS });
     } catch (error) {
       return new Response(JSON.stringify({
         success: false,
@@ -205,6 +221,12 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       if (url.pathname === '/api/psd-chunks/abort' && req.method === 'POST') {
         const body = await req.json();
         const tool = createChunkAbortTool(env);
+        const res = await tool.execute({ input: body } as any);
+        return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
+      }
+      if (url.pathname === '/api/psd-chunks/status' && req.method === 'POST') {
+        const body = await req.json();
+        const tool = createChunkStatusTool(env);
         const res = await tool.execute({ input: body } as any);
         return new Response(JSON.stringify(res), { headers: JSON_HEADERS });
       }

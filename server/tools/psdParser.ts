@@ -4,6 +4,11 @@ import type { Env } from "../main.ts";
 import { readPsd } from "ag-psd";
 import { psdChunkTools } from './psdChunkUpload.ts';
 
+// Build/version marker para diagnosticar se o worker em produção está atualizado
+export const BUILD_VERSION = (() => {
+  try { return (globalThis as any).BUILD_VERSION || new Date().toISOString(); } catch { return new Date().toISOString(); }
+})();
+
 // ================== TYPES & UTILITIES ==================
 interface PSDTextInfo { content: string; size: number; color: any; }
 interface PSDLayerInfo {
@@ -128,42 +133,62 @@ async function processPsdFile(filePath: string, includeImageData: boolean, exter
 
     buffer = await response.arrayBuffer();
     fileSize = buffer.byteLength;
+    if (fileSize > 8 * 1024 * 1024 && !includeImageData) {
+      // Suggest client to use chunked path instead for large files
+      logger.warn('⚠️ Large file via direct parse, consider chunked upload to reduce memory spikes');
+    }
   }
 
     logger.log(`📈 File size ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
 
-  logger.log('🎨 Parsing PSD (ag-psd)');
-  const psdData = readPsd(new Uint8Array(buffer));
+    logger.log('🎨 Parsing PSD (ag-psd)');
+    let psdData: any;
+    try {
+      // Skip heavy image data unless explicitly requested
+      const options = includeImageData ? {} : { skipCompositeImageData: true, skipLayerImageData: true } as any;
+      psdData = readPsd(new Uint8Array(buffer), options);
+    } catch (e: any) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/Canvas not initialized/i.test(msg)) {
+        logger.warn('🖼️ Canvas not available - retrying without image data');
+        psdData = readPsd(new Uint8Array(buffer), { skipCompositeImageData: true, skipLayerImageData: true });
+      } else {
+        logger.error('❌ readPsd failed', e);
+        return { success: false, error: msg };
+      }
+    }
 
-  // Clear buffer from memory as soon as possible
-  buffer = null as any;
+    // Clear buffer from memory as soon as possible
+    buffer = null as any;
 
-  logger.log(`🎨 Dimensions ${psdData.width}x${psdData.height} | Raw layers ${(psdData.children || []).length}`);
+    logger.log(`🎨 Dimensions ${psdData.width}x${psdData.height} | Raw layers ${(psdData.children || []).length}`);
 
   // Extract layer information with extreme optimization
   const layers: PSDLayerInfo[] = [];
   extractLayersFreeTier(psdData.children || [], false, MAX_DEPTH, 0, new Set(), layers, start);
 
   // Create summary JSON
-  const psdSummary = {
-    fileName: filePath.split("/").pop() || 'unknown.psd',
-    width: psdData.width,
-    height: psdData.height,
-    layers: layers,
-    metadata: {
-      version: psdData.version,
-      channels: psdData.channels,
-      colorMode: psdData.colorMode,
-      fileSize: fileSize,
-      processedLayers: layers.length,
-      maxLayersAllowed: MAX_LAYERS,
-      planType: PLAN_TYPE,
-      elapsedMs: Date.now() - start
-    }
-  };
-  logger.log(`✅ Completed - ${layers.length} layers | ${(Date.now() - start)}ms`);
+    const psdSummary = {
+      fileName: filePath.split("/").pop() || 'unknown.psd',
+      width: psdData.width,
+      height: psdData.height,
+      layers: layers,
+      metadata: {
+        version: psdData.version,
+        channels: psdData.channels,
+        colorMode: psdData.colorMode,
+        fileSize: fileSize,
+        processedLayers: layers.length,
+        maxLayersAllowed: MAX_LAYERS,
+        planType: PLAN_TYPE,
+  elapsedMs: Date.now() - start,
+  buildVersion: BUILD_VERSION,
+  fallbackNoCanvas: psdData.compositeImage == null
+      }
+    };
+    logger.log(`✅ Completed - ${layers.length} layers | ${(Date.now() - start)}ms`);
 
-  return { success: true, data: psdSummary };
+    return { success: true, data: psdSummary };
 }
 
 // Parse direto de um buffer já montado (para sessões de upload em chunks)
@@ -173,13 +198,24 @@ export async function parsePSDFromBuffer(buffer: Uint8Array, fileName: string, i
     if (buffer.byteLength > MAX_FILE_SIZE) {
       return { success: false, error: `File too large: ${(buffer.byteLength/1024/1024).toFixed(1)}MB`, code: 'FILE_TOO_LARGE' } as any;
     }
-  const psdData = readPsd(buffer as any);
+    let psdData: any;
+    try {
+      psdData = readPsd(buffer as any);
+    } catch (e: any) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/Canvas not initialized/i.test(msg)) {
+        logger.warn('🖼️ Canvas missing in buffer parse - retry without image data');
+        psdData = readPsd(buffer as any, { skipCompositeImageData: true, skipLayerImageData: true });
+      } else {
+        throw e;
+      }
+    }
     const layers: PSDLayerInfo[] = [];
     extractLayersFreeTier(psdData.children || [], includeImageData, MAX_DEPTH, 0, new Set(), layers, start);
     return {
       success: true,
       data: {
-        fileName: fileName,
+        fileName,
         width: psdData.width,
         height: psdData.height,
         layers,
@@ -187,7 +223,9 @@ export async function parsePSDFromBuffer(buffer: Uint8Array, fileName: string, i
           planType: PLAN_TYPE,
           fileSize: buffer.byteLength,
           processedLayers: layers.length,
-          elapsedMs: Date.now() - start
+          elapsedMs: Date.now() - start,
+          fallbackNoCanvas: psdData.compositeImage == null,
+          buildVersion: BUILD_VERSION
         }
       }
     };
@@ -240,20 +278,33 @@ export const createPsdParserTool = (env: Env) =>
       });
 
       try {
-        logger.log(`🚀 Start PARSE_PSD_FILE: ${filePath}`);
-          const result = await Promise.race([ processPsdFile(filePath, includeImageData, start), timeoutPromise ]);
-          if (!result.success && (result as any).code === 'TIMEOUT') {
-            logger.warn('⏱️ Timeout reached, returning timeout error');
+        logger.log(`🚀 Start PARSE_PSD_FILE: ${filePath} (build=${BUILD_VERSION})`);
+        let result = await Promise.race([ processPsdFile(filePath, includeImageData, start), timeoutPromise ]);
+        if (!result.success && /Canvas not initialized/i.test(result.error)) {
+          // Fallback manual adicional (caso parse principal não tenha aplicado)
+          logger.warn('🧪 Manual canvas fallback (PARSE_PSD_FILE)');
+          try {
+            const resp = await fetch(filePath);
+            const buf = new Uint8Array(await resp.arrayBuffer());
+            const psd = readPsd(buf, { skipCompositeImageData: true, skipLayerImageData: true });
+            const layers: any[] = [];
+            extractLayersFreeTier(psd.children || [], false, MAX_DEPTH, 0, new Set(), layers, start);
+            result = { success: true, data: { fileName: filePath.split('/').pop() || 'unknown.psd', width: psd.width, height: psd.height, layers, metadata: { fallbackNoCanvas: true, manualFallback: true, buildVersion: BUILD_VERSION } } } as any;
+          } catch (fe) {
+            logger.error('❌ Manual fallback failed', fe);
           }
-          // Conform to declared outputSchema (strip unknown fields like code)
-          if (result.success) {
-            return { success: true, data: result.data };
-          }
-          return { success: false, error: result.error };
+        }
+        if (!result.success && (result as any).code === 'TIMEOUT') {
+          logger.warn('⏱️ Timeout reached, returning timeout error');
+        }
+        if (result.success) {
+          return { success: true, data: result.data };
+        }
+        return { success: false, error: result.error };
       } catch (error) {
-        const { code, message } = classifyError(error);
+        const { message } = classifyError(error);
         logger.error('❌ Failed', message);
-          return { success: false, error: `Failed to parse PSD file: ${message}` };
+        return { success: false, error: `Failed to parse PSD file: ${message}` };
       }
     },
   });
