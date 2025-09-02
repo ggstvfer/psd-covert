@@ -146,32 +146,62 @@ function PSDConverterPage() {
         console.log('📈 Arquivo grande detectado, usando processamento otimizado...');
       }
 
-      // Create data URL for the file
-      const fileReader = new FileReader();
-      const fileUrl = await new Promise<string>((resolve) => {
-        fileReader.onload = () => resolve(fileReader.result as string);
-        fileReader.readAsDataURL(selectedFile);
-      });
+      // Create data URL for the file (or use FormData for large files)
+      let fileData: string | FormData;
+      let useFormData = selectedFile.size > 20 * 1024 * 1024; // > 20MB
+
+      if (useFormData) {
+        console.log('📦 Arquivo muito grande, usando FormData para upload direto...');
+        setConversionProgress(15);
+
+        // Use FormData for large files to avoid data URL overhead
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('includeImageData', 'false');
+        fileData = formData;
+      } else {
+        console.log('🔄 Convertendo arquivo para data URL...');
+        const fileReader = new FileReader();
+        const fileUrl = await new Promise<string>((resolve, reject) => {
+          fileReader.onload = () => resolve(fileReader.result as string);
+          fileReader.onerror = () => reject(new Error('Failed to read file'));
+          fileReader.readAsDataURL(selectedFile);
+        });
+        fileData = fileUrl;
+      }
 
       setConversionProgress(25);
 
       // Step 2: Parse PSD file using backend
-      const parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filePath: fileUrl,
-          includeImageData: false
-        })
-      });
+      let parseResponse: Response;
+
+      if (useFormData) {
+        // Use FormData upload for large files
+        parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
+          method: 'POST',
+          body: fileData as FormData
+        });
+      } else {
+        // Use JSON with data URL for smaller files
+        parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filePath: fileData as string,
+            includeImageData: false
+          })
+        });
+      }
 
       if (!parseResponse.ok) {
-        throw new Error('Failed to parse PSD file');
+        const errorText = await parseResponse.text();
+        throw new Error(`Failed to parse PSD file: ${parseResponse.status} ${errorText}`);
       }
 
       const psdData = await parseResponse.json();
+      console.log('✅ PSD parsed successfully:', psdData);
       setConversionProgress(50);
 
       // Step 3: Convert PSD to HTML using backend

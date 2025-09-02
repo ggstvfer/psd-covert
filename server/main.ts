@@ -93,8 +93,35 @@ const handleApiRoutes = async (req: Request, env: Env) => {
   // Parse PSD API
   if (url.pathname === '/api/parse-psd' && req.method === 'POST') {
     try {
-      const body = await req.json();
-      const { filePath, includeImageData = false } = body;
+      let filePath: string;
+      let includeImageData = false;
+
+      // Check if request is FormData or JSON
+      const contentType = req.headers.get('content-type') || '';
+
+      if (contentType.includes('multipart/form-data')) {
+        // Handle FormData upload
+        const formData = await req.formData();
+        const file = formData.get('file') as File;
+        const includeImageDataStr = formData.get('includeImageData') as string;
+
+        if (!file) {
+          throw new Error('No file provided in FormData');
+        }
+
+        // Convert file to data URL
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        filePath = `data:${file.type};base64,${base64}`;
+        includeImageData = includeImageDataStr === 'true';
+
+        console.log(`📁 Received file via FormData: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
+      } else {
+        // Handle JSON request
+        const body = await req.json();
+        filePath = body.filePath;
+        includeImageData = body.includeImageData || false;
+      }
 
       const parserTool = createPsdParserTool(env);
       const result = await parserTool.execute({
