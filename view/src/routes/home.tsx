@@ -41,7 +41,19 @@ function HomePage() {
                   className="bg-white text-blue-600 hover:bg-blue-50 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   <FileImage className="w-5 h-5 mr-2" />
-                  Começar Conversão
+                  Conversão Avançada
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+              
+              <Link to="/simple">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-transparent border-white text-white hover:bg-white hover:text-blue-600 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <FileImage className="w-5 h-5 mr-2" />
+                  Conversão Simples
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>

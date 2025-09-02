@@ -1,12 +1,14 @@
 ﻿import ReactDOM from "react-dom/client";
 import {
   createRootRoute,
+  createRoute,
   createRouter,
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
 import HomePage from "./routes/home.tsx";
 import ConverterPage from "./routes/converter.tsx";
+import ConverterSimple from "./routes/converter-simple.tsx";
 import { Toaster } from "sonner";
 
 import "./styles.css";
@@ -16,9 +18,17 @@ const rootRoute = createRootRoute({
   component: () => <Outlet />,
 });
 
+// Criar rota simples
+const converterSimpleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/simple",
+  component: ConverterSimple,
+});
+
 const routeTree = rootRoute.addChildren([
   HomePage(rootRoute),
   ConverterPage(rootRoute),
+  converterSimpleRoute,
 ]);
 
 const queryClient = new QueryClient();
