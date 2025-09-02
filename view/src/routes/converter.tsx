@@ -217,7 +217,7 @@ function PSDConverterPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          psdData: psdData.data,
+          psdData: psdData.data || psdData,
           targetFramework: selectedFramework,
           responsive,
           semantic,

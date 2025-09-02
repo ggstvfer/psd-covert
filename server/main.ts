@@ -9,8 +9,8 @@ import { type Env as DecoEnv, StateSchema } from "./deco.gen.ts";
 
 import { workflows } from "./workflows/index.ts";
 import { createPsdParserTool, createPsdUploadTool } from "./tools/psdParser.ts";
-import { createPsdToHtmlTool, createHtmlPreviewTool } from "./tools/psdConverter.ts";
-import { createVisualValidationTool, createSelfReinforceTool } from "./tools/psdValidator.ts";
+import { createPsdToHtmlTool } from "./tools/psdConverter.ts";
+import { createVisualValidationTool } from "./tools/psdValidator.ts";
 import { views } from "./views.ts";
 
 /**
@@ -207,63 +207,15 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     }
   }
 
-  // Self-reinforce API
-  if (url.pathname === '/api/self-reinforce' && req.method === 'POST') {
-    try {
-      const body = await req.json();
-      const { validationResults, originalPsdData, currentHtml, currentCss, iteration = 1 } = body;
-
-      const reinforceTool = createSelfReinforceTool(env);
-      const result = await reinforceTool.execute({
-        input: {
-          validationResults,
-          originalPsdData,
-          currentHtml,
-          currentCss,
-          iteration
-        }
-      } as any);
-
-      return new Response(JSON.stringify(result), {
-        headers: JSON_HEADERS
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }), {
-        status: 500,
-        headers: JSON_HEADERS
-      });
-    }
-  }
-
-  // Preview API
+  // Preview API - Temporarily disabled
   if (url.pathname === '/api/preview' && req.method === 'POST') {
-    try {
-      const body = await req.json();
-      const { htmlContent, cssContent } = body;
-
-      const previewTool = createHtmlPreviewTool(env);
-      const result = await previewTool.execute({
-        input: {
-          htmlContent,
-          cssContent
-        }
-      } as any);
-
-      return new Response(JSON.stringify(result), {
-        headers: JSON_HEADERS
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }), {
-        status: 500,
-        headers: JSON_HEADERS
-      });
-    }
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Preview functionality temporarily disabled'
+    }), {
+      status: 501,
+      headers: JSON_HEADERS
+    });
   }
 
   return null; // Not an API route, continue to fallback
@@ -280,9 +232,7 @@ const runtime = withRuntime<Env, typeof StateSchema>({
     createPsdParserTool,
     createPsdUploadTool,
     createPsdToHtmlTool,
-    createHtmlPreviewTool,
-    createVisualValidationTool,
-    createSelfReinforceTool
+    createVisualValidationTool
   ],
   fetch: async (req, env) => {
     // Try API routes first
