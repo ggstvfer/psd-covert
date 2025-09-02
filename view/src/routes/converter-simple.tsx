@@ -44,46 +44,95 @@ export default function ConverterSimple() {
           dimensions: { width: 1920, height: 1080 },
           visible: true,
           opacity: 255,
+          text: '',
           styles: {
             backgroundColor: '#ffffff',
             border: '1px solid #e0e0e0'
-          }
-        },
-        {
-          name: 'Header',
-          type: 'header',
-          position: { left: 0, top: 0 },
-          dimensions: { width: 1920, height: 120 },
-          visible: true,
-          opacity: 255,
-          styles: {
-            backgroundColor: '#f8f9fa',
-            borderBottom: '2px solid #dee2e6'
-          }
-        },
-        {
-          name: 'Content Area',
-          type: 'div',
-          position: { left: 0, top: 120 },
-          dimensions: { width: 1920, height: 800 },
-          visible: true,
-          opacity: 255,
-          styles: {
-            backgroundColor: '#ffffff',
-            padding: '40px'
-          }
-        },
-        {
-          name: 'Footer',
-          type: 'footer',
-          position: { left: 0, top: 920 },
-          dimensions: { width: 1920, height: 160 },
-          visible: true,
-          opacity: 255,
-          styles: {
-            backgroundColor: '#343a40',
-            color: '#ffffff'
-          }
+          },
+          children: [
+            {
+              name: 'Header',
+              type: 'header',
+              position: { left: 0, top: 0 },
+              dimensions: { width: 1920, height: 120 },
+              visible: true,
+              opacity: 255,
+              text: 'Website Header - Logo e Navegação',
+              styles: {
+                backgroundColor: '#2c3e50',
+                color: '#ffffff',
+                padding: '20px',
+                textAlign: 'center',
+                fontSize: '24px',
+                fontWeight: 'bold'
+              }
+            },
+            {
+              name: 'Navigation',
+              type: 'nav',
+              position: { left: 0, top: 120 },
+              dimensions: { width: 1920, height: 60 },
+              visible: true,
+              opacity: 255,
+              text: 'Home | Sobre | Serviços | Contato',
+              styles: {
+                backgroundColor: '#34495e',
+                color: '#ffffff',
+                padding: '15px',
+                textAlign: 'center',
+                fontSize: '16px'
+              }
+            },
+            {
+              name: 'Hero Section',
+              type: 'section',
+              position: { left: 0, top: 180 },
+              dimensions: { width: 1920, height: 400 },
+              visible: true,
+              opacity: 255,
+              text: 'Título Principal do Website - Conteúdo convertido do PSD',
+              styles: {
+                backgroundColor: '#3498db',
+                color: '#ffffff',
+                padding: '80px 40px',
+                textAlign: 'center',
+                fontSize: '36px',
+                fontWeight: 'bold'
+              }
+            },
+            {
+              name: 'Content Area',
+              type: 'main',
+              position: { left: 0, top: 580 },
+              dimensions: { width: 1920, height: 280 },
+              visible: true,
+              opacity: 255,
+              text: 'Área principal de conteúdo. Aqui seria colocado o conteúdo real extraído do seu arquivo PSD. Este é um exemplo de como ficaria o layout responsivo.',
+              styles: {
+                backgroundColor: '#ecf0f1',
+                padding: '40px',
+                fontSize: '18px',
+                lineHeight: '1.6',
+                color: '#2c3e50'
+              }
+            },
+            {
+              name: 'Footer',
+              type: 'footer',
+              position: { left: 0, top: 860 },
+              dimensions: { width: 1920, height: 220 },
+              visible: true,
+              opacity: 255,
+              text: '© 2025 Seu Website - Convertido automaticamente do PSD',
+              styles: {
+                backgroundColor: '#2c3e50',
+                color: '#bdc3c7',
+                padding: '40px',
+                textAlign: 'center',
+                fontSize: '14px'
+              }
+            }
+          ]
         }
       ],
       metadata: {

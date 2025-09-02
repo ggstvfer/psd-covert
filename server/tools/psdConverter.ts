@@ -616,15 +616,89 @@ function generateElementAttributes(component: any, accessibility: boolean): stri
 function getElementContent(component: any): string {
   switch (component.type) {
     case 'button':
-      return component.text || 'Button';
+      return component.text || 'Clique Aqui';
     case 'input':
       return '';
     case 'image':
       return '';
     case 'link':
       return component.text || 'Link';
+    case 'header':
+      return component.text || `<div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 24px; font-weight: bold;">Logo</div>
+        <nav style="display: flex; gap: 30px;">
+          <a href="#" style="color: inherit; text-decoration: none;">Home</a>
+          <a href="#" style="color: inherit; text-decoration: none;">Sobre</a>
+          <a href="#" style="color: inherit; text-decoration: none;">Serviços</a>
+          <a href="#" style="color: inherit; text-decoration: none;">Contato</a>
+        </nav>
+      </div>`;
+    case 'nav':
+    case 'navigation':
+      return component.text || `<ul style="display: flex; justify-content: center; gap: 40px; list-style: none; margin: 0; padding: 0;">
+        <li><a href="#" style="color: inherit; text-decoration: none; padding: 10px 20px;">Home</a></li>
+        <li><a href="#" style="color: inherit; text-decoration: none; padding: 10px 20px;">Produtos</a></li>
+        <li><a href="#" style="color: inherit; text-decoration: none; padding: 10px 20px;">Serviços</a></li>
+        <li><a href="#" style="color: inherit; text-decoration: none; padding: 10px 20px;">Contato</a></li>
+      </ul>`;
+    case 'section':
+      return component.text || `<div style="text-align: center;">
+        <h1 style="font-size: 48px; margin-bottom: 20px; font-weight: bold;">Título Principal</h1>
+        <p style="font-size: 20px; margin-bottom: 30px;">Subtítulo ou descrição do seu projeto convertido do PSD</p>
+        <button style="background: #e74c3c; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer;">Call to Action</button>
+      </div>`;
+    case 'main':
+    case 'content':
+      return component.text || `<div style="max-width: 1200px; margin: 0 auto;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-bottom: 40px;">
+          <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h3 style="font-size: 24px; margin-bottom: 15px; color: #2c3e50;">Característica 1</h3>
+            <p style="line-height: 1.6;">Descrição detalhada da primeira característica do seu projeto.</p>
+          </div>
+          <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h3 style="font-size: 24px; margin-bottom: 15px; color: #2c3e50;">Característica 2</h3>
+            <p style="line-height: 1.6;">Descrição detalhada da segunda característica do seu projeto.</p>
+          </div>
+          <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h3 style="font-size: 24px; margin-bottom: 15px; color: #2c3e50;">Característica 3</h3>
+            <p style="line-height: 1.6;">Descrição detalhada da terceira característica do seu projeto.</p>
+          </div>
+        </div>
+      </div>`;
+    case 'footer':
+      return component.text || `<div style="max-width: 1200px; margin: 0 auto; text-align: center;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 40px; margin-bottom: 30px; text-align: left;">
+          <div>
+            <h4 style="margin-bottom: 15px; font-size: 18px;">Empresa</h4>
+            <ul style="list-style: none; padding: 0; line-height: 2;">
+              <li><a href="#" style="color: inherit; text-decoration: none;">Sobre Nós</a></li>
+              <li><a href="#" style="color: inherit; text-decoration: none;">Nossa Equipe</a></li>
+              <li><a href="#" style="color: inherit; text-decoration: none;">Carreiras</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom: 15px; font-size: 18px;">Serviços</h4>
+            <ul style="list-style: none; padding: 0; line-height: 2;">
+              <li><a href="#" style="color: inherit; text-decoration: none;">Web Design</a></li>
+              <li><a href="#" style="color: inherit; text-decoration: none;">Desenvolvimento</a></li>
+              <li><a href="#" style="color: inherit; text-decoration: none;">Consultoria</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom: 15px; font-size: 18px;">Contato</h4>
+            <p style="line-height: 1.6;">
+              Email: contato@empresa.com<br>
+              Telefone: (11) 9999-9999<br>
+              Endereço: São Paulo, SP
+            </p>
+          </div>
+        </div>
+        <div style="border-top: 1px solid #7f8c8d; padding-top: 20px; text-align: center;">
+          <p>&copy; 2025 Sua Empresa. Todos os direitos reservados. Convertido automaticamente do PSD.</p>
+        </div>
+      </div>`;
     default:
-      return component.text || component.name;
+      return component.text || component.name || '<p>Conteúdo da seção</p>';
   }
 }
 
@@ -663,21 +737,27 @@ function generateBaseStyles(components: any[], responsive: boolean): string {
   let css = `.psd-converted {
   position: relative;
   width: 100%;
+  max-width: 1920px;
   margin: 0 auto;
   background: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 `;
 
   components.forEach(component => {
-    const styles = component.styles;
+    const styles = component.styles || {};
     css += `.psd-${component.type}-${component.id} {
-  position: ${styles.position};
-  left: ${styles.left};
-  top: ${styles.top};
-  width: ${styles.width};
-  height: ${styles.height};
-  opacity: ${styles.opacity};
+  position: relative;
+  width: 100%;
+  min-height: ${Math.round((component.dimensions?.height || 100) / 10)}px;
+  display: block;
 `;
 
     if (styles.backgroundColor && styles.backgroundColor !== 'transparent') {
@@ -685,15 +765,48 @@ function generateBaseStyles(components: any[], responsive: boolean): string {
 `;
     }
 
-    if (styles.borderRadius && styles.borderRadius !== '0px') {
-      css += `  border-radius: ${styles.borderRadius};
+    if (styles.color) {
+      css += `  color: ${styles.color};
 `;
     }
 
-    if (component.type === 'text' || component.type.startsWith('h')) {
+    if (styles.padding) {
+      css += `  padding: ${styles.padding};
+`;
+    }
+
+    if (styles.textAlign) {
+      css += `  text-align: ${styles.textAlign};
+`;
+    }
+
+    if (styles.fontSize) {
       css += `  font-size: ${styles.fontSize};
-  font-family: ${styles.fontFamily};
-  color: ${styles.color};
+`;
+    }
+
+    if (styles.fontWeight) {
+      css += `  font-weight: ${styles.fontWeight};
+`;
+    }
+
+    if (styles.borderBottom) {
+      css += `  border-bottom: ${styles.borderBottom};
+`;
+    }
+
+    if (styles.border) {
+      css += `  border: ${styles.border};
+`;
+    }
+
+    if (styles.lineHeight) {
+      css += `  line-height: ${styles.lineHeight};
+`;
+    }
+
+    if (styles.borderRadius && styles.borderRadius !== '0px') {
+      css += `  border-radius: ${styles.borderRadius};
 `;
     }
 
@@ -705,14 +818,23 @@ function generateBaseStyles(components: any[], responsive: boolean): string {
     css += `
 @media (max-width: 768px) {
   .psd-converted {
-    transform: scale(0.8);
-    transform-origin: top center;
+    padding: 20px;
+  }
+  
+  .psd-converted > * {
+    min-height: auto !important;
+    padding: 15px !important;
   }
 }
 
 @media (max-width: 480px) {
   .psd-converted {
-    transform: scale(0.6);
+    padding: 10px;
+  }
+  
+  .psd-converted > * {
+    padding: 10px !important;
+    font-size: 14px !important;
   }
 }`;
   }
