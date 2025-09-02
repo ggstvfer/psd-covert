@@ -44,9 +44,16 @@ export const createPsdToHtmlTool = (env: Env) =>
       error: z.string().optional()
     }),
     execute: async (context) => {
+      console.log('🔧 PSD Converter Tool - Starting execution...');
+      console.log('📥 Context received:', JSON.stringify(context, null, 2));
+
       // Handle different context structures
       const input = (context as any).input || context;
       const { psdData, targetFramework, responsive, semantic, accessibility } = input;
+
+      console.log('📊 PSD Data received:', JSON.stringify(psdData, null, 2));
+      console.log('🎯 Target Framework:', targetFramework);
+      console.log('⚙️ Options:', { responsive, semantic, accessibility });
 
       try {
         console.log('🎨 Starting PSD to HTML conversion...');
@@ -388,24 +395,23 @@ export class ${className} {
  * Generate vanilla HTML/CSS code
  */
 function generateVanillaCode(components: any[], psdData: any, responsive: boolean, semantic: boolean, accessibility: boolean) {
+  console.log('🎨 Generating vanilla HTML/CSS...');
+  console.log('📊 Components count:', components.length);
+
   const htmlElements = components.map(comp => generateHTMLElement(comp, semantic, accessibility)).join('\n  ');
+  console.log('📄 HTML elements generated, length:', htmlElements.length);
 
   const styles = generateVanillaStyles(components, responsive);
+  console.log('🎨 CSS styles generated, length:', styles.length);
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PSD Convertido - ${psdData.fileName}</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div class="psd-converted">
+  // Return only the HTML content, not a full HTML document
+  const html = `<div class="psd-converted">
 ${htmlElements}
-  </div>
-</body>
-</html>`;
+</div>`;
+
+  console.log('✅ Final HTML content length:', html.length);
+  console.log('✅ Final CSS length:', styles.length);
+  console.log('📄 HTML content preview:', html.substring(0, 200));
 
   return {
     html,
@@ -487,6 +493,8 @@ function generateHTMLElement(component: any, semantic: boolean, accessibility: b
   const attributes = generateElementAttributes(component, accessibility);
 
   console.log(`  🏗️ Generating HTML for ${component.name} (${component.type}) -> <${tag}>`);
+  console.log(`    📐 Position: ${component.position?.left || 0}, ${component.position?.top || 0}`);
+  console.log(`    📏 Size: ${component.dimensions?.width || 0}x${component.dimensions?.height || 0}`);
 
   if (component.children && component.children.length > 0) {
     const children = component.children.map((child: any) => generateHTMLElement(child, semantic, accessibility)).join('\n  ');
@@ -494,12 +502,14 @@ function generateHTMLElement(component: any, semantic: boolean, accessibility: b
 ${children}
   </${tag}>`;
     console.log(`    📦 Generated container with ${component.children.length} children`);
+    console.log(`    📄 Container HTML: ${result}`);
     return result;
   }
 
   const content = getElementContent(component);
   const result = `  <${tag}${attributes}>${content}</${tag}>`;
-  console.log(`    📝 Generated element with content: "${content.substring(0, 50)}..."`);
+  console.log(`    📝 Generated element with content: "${content}"`);
+  console.log(`    📄 Element HTML: ${result}`);
   return result;
 }
 
@@ -716,6 +726,12 @@ function generateBaseStyles(components: any[], responsive: boolean): string {
 function analyzePSDComponents(layers: any[]): any[] {
   const components: any[] = [];
   console.log('🔍 Analyzing PSD layers:', layers?.length || 0);
+  console.log('📋 Layers structure:', JSON.stringify(layers, null, 2));
+
+  if (!layers || layers.length === 0) {
+    console.warn('⚠️ No layers found in PSD data!');
+    return components;
+  }
 
   function processLayer(layer: any, depth = 0): any {
     console.log(`  📋 Processing layer: ${layer.name} (${layer.type}) at depth ${depth}`);

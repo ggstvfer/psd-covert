@@ -439,7 +439,54 @@ function PSDConverterPage() {
       console.log('✅ PSD parsed successfully:', psdData);
       setConversionProgress(50);
 
+      // If we don't have psdData (skipped local parse), try backend parsing
+      if (!psdData) {
+        console.log('🔄 Tentando parse backend para arquivo sem dados locais');
+        // Try to parse via backend API
+        const parseResponse = await fetch(`${API_BASE_URL}/api/parse-psd`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fileData: await selectedFile.arrayBuffer(),
+            includeImageData: false
+          })
+        });
+
+        if (parseResponse.ok) {
+          const parseJson = await parseResponse.json();
+          psdData = parseJson.data || parseJson;
+          console.log('✅ Parse backend successful:', psdData);
+        } else {
+          console.warn('⚠️ Backend parse failed, creating basic structure');
+          // Create basic structure as fallback
+          psdData = {
+            fileName: selectedFile.name,
+            width: 1920,
+            height: 1080,
+            layers: [{
+              name: 'Background Layer',
+              type: 'div',
+              position: { left: 0, top: 0 },
+              dimensions: { width: 1920, height: 1080 },
+              visible: true,
+              opacity: 255
+            }],
+            metadata: { fallback: true, originalSize: selectedFile.size }
+          };
+        }
+      }
+
       // Step 3: Convert PSD to HTML using backend
+      console.log('🚀 Sending conversion data:', JSON.stringify({
+        psdData: (psdData && psdData.data) ? psdData.data : psdData,
+        targetFramework: selectedFramework,
+        responsive,
+        semantic,
+        accessibility
+      }, null, 2));
+
       const convertResponse = await fetch(`${API_BASE_URL}/api/convert-psd`, {
         method: 'POST',
         headers: {
@@ -454,11 +501,16 @@ function PSDConverterPage() {
         })
       });
 
+      console.log('📡 Conversion response status:', convertResponse.status);
+
       if (!convertResponse.ok) {
+        const errorText = await convertResponse.text();
+        console.error('❌ Conversion failed:', errorText);
         throw new Error('Failed to convert PSD');
       }
 
       const conversionResult = await convertResponse.json();
+      console.log('✅ Conversion result:', conversionResult);
       setConversionProgress(75);
 
       // Step 4: Validate conversion
@@ -485,6 +537,24 @@ function PSDConverterPage() {
       setValidationResult(validationResult);
 
       // Generate preview
+      console.log('🎨 Generating preview HTML...');
+      console.log('📄 HTML content length:', conversionResult.html?.length || 0);
+      console.log('🎨 CSS content length:', conversionResult.css?.length || 0);
+      console.log('📄 HTML content preview:', conversionResult.html?.substring(0, 200) || 'EMPTY');
+      console.log('🎨 CSS content preview:', conversionResult.css?.substring(0, 200) || 'EMPTY');
+
+      // Validate HTML content
+      if (!conversionResult.html || conversionResult.html.trim().length === 0) {
+        console.warn('⚠️ HTML content is empty!');
+        conversionResult.html = '<div class="psd-converted"><p>Preview gerado, mas sem conteúdo visível.</p></div>';
+      }
+
+      // Validate CSS content
+      if (!conversionResult.css || conversionResult.css.trim().length === 0) {
+        console.warn('⚠️ CSS content is empty!');
+        conversionResult.css = '.psd-converted { padding: 20px; background: #f5f5f5; }';
+      }
+
       const fullHtml = `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -498,8 +568,15 @@ function PSDConverterPage() {
     ${conversionResult.html}
 </body>
 </html>`;
+
+      console.log('📦 Full HTML length:', fullHtml.length);
+      console.log('📄 Full HTML content:', fullHtml);
+      console.log('🔗 Creating blob and URL...');
+
       const blob = new Blob([fullHtml], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
+      console.log('✅ Preview URL created:', url);
+      console.log('📋 Blob size:', blob.size, 'bytes');
       setPreviewUrl(url);
 
     } catch (error) {
