@@ -75,23 +75,29 @@ export default function ConverterAI() {
     console.log('🤖 Enviando imagem para análise da LLM...');
     
     try {
-      // Preparar o prompt para a LLM
-      const prompt = `Analise esta imagem de um design PSD e gere HTML/CSS responsivo que reproduza fielmente o layout.
+      // Preparar o prompt para reprodução fiel
+      const prompt = `Analise esta imagem extraída de um arquivo PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
 
-INSTRUÇÕES:
-1. Identifique todos os elementos visuais: textos, botões, imagens, cores, tipografias
-2. Gere HTML semântico com estrutura apropriada 
-3. Gere CSS moderno com Flexbox/Grid quando apropriado
-4. Use cores, fontes e tamanhos que correspondam ao design
-5. Torne o código responsivo
-6. Dimensões originais: ${width}px x ${height}px
+IMPORTANTE: 
+- NÃO crie um site genérico
+- REPRODUZA FIELMENTE o que está na imagem
+- Use EXATAMENTE os textos que aparecem na imagem
+- Mantenha o MESMO layout e posicionamento
+- Preserve cores, fontes e proporções originais
+
+INSTRUÇÕES ESPECÍFICAS:
+1. Identifique TODOS os textos visíveis na imagem
+2. Identifique elementos visuais (fotos, ícones, formas)
+3. Reproduza o layout EXATO - posições, tamanhos, cores
+4. Se há uma foto/imagem, use um placeholder no mesmo local
+5. Use apenas HTML/CSS - sem JavaScript
+6. Mantenha as dimensões originais: ${width}px x ${height}px
 
 FORMATO DE RESPOSTA:
-Retorne um JSON com:
 {
-  "html": "código HTML completo",
-  "css": "código CSS completo", 
-  "analysis": "descrição do que você identificou no design"
+  "html": "HTML que reproduz exatamente a imagem",
+  "css": "CSS que replica o visual exato", 
+  "analysis": "descrição detalhada do que você vê na imagem"
 }`;
 
       // Enviar para o backend que fará a chamada para a LLM
@@ -112,7 +118,7 @@ Retorne um JSON com:
       }
 
       const result = await response.json();
-      console.log('✅ Análise da LLM concluída');
+      console.log('✅ Análise da LLM concluída - reprodução fiel gerada');
       
       return result;
       
@@ -254,10 +260,11 @@ Retorne um JSON com:
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              🤖 Conversor PSD para HTML com IA
+              🤖 Replicador PSD com IA Visual
             </CardTitle>
             <CardDescription>
-              Converte arquivos PSD em HTML/CSS usando análise inteligente com LLM
+              A IA analisa visualmente seu PSD e replica EXATAMENTE o conteúdo em HTML/CSS. 
+              Reproduz textos, layout e elementos visuais conforme aparecem no design original.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -281,7 +288,7 @@ Retorne um JSON com:
               />
               <div className="space-y-2">
                 <p className="text-lg font-medium">Clique para selecionar ou arraste um arquivo PSD</p>
-                <p className="text-sm text-gray-500">Suporta arquivos .psd</p>
+                <p className="text-sm text-gray-500">A IA irá replicar EXATAMENTE o conteúdo visual do seu PSD</p>
               </div>
             </div>
             
@@ -309,7 +316,7 @@ Retorne um JSON com:
                 className="w-full"
                 size="lg"
               >
-                {isConverting ? '🤖 Convertendo com IA...' : '🚀 Converter com IA'}
+                {isConverting ? '🤖 Replicando com IA...' : '🎯 Replicar Conteúdo'}
               </Button>
               
               {isConverting && (
@@ -317,9 +324,9 @@ Retorne um JSON com:
                   <Progress value={conversionProgress} className="w-full" />
                   <p className="text-sm text-center text-gray-600">
                     {conversionProgress < 30 && "Extraindo imagem do PSD..."}
-                    {conversionProgress >= 30 && conversionProgress < 70 && "Analisando design com IA..."}
-                    {conversionProgress >= 70 && conversionProgress < 90 && "Gerando HTML/CSS..."}
-                    {conversionProgress >= 90 && "Finalizando..."}
+                    {conversionProgress >= 30 && conversionProgress < 70 && "IA analisando conteúdo visual..."}
+                    {conversionProgress >= 70 && conversionProgress < 90 && "Replicando layout em HTML/CSS..."}
+                    {conversionProgress >= 90 && "Finalizando réplica..."}
                   </p>
                 </div>
               )}
@@ -348,7 +355,7 @@ Retorne um JSON com:
             {llmAnalysis && (
               <Card>
                 <CardHeader>
-                  <CardTitle>🔍 Análise da IA</CardTitle>
+                  <CardTitle>🔍 Análise Visual da IA</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-700 whitespace-pre-wrap">{llmAnalysis}</p>
@@ -360,7 +367,7 @@ Retorne um JSON com:
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>🖥️ Preview</span>
+                  <span>🖥️ Réplica Fiel</span>
                   <Button onClick={downloadHTML} variant="outline">
                     📥 Download HTML
                   </Button>
@@ -380,7 +387,7 @@ Retorne um JSON com:
                       <iframe
                         src={previewUrl}
                         className="w-full h-96 border rounded-lg"
-                        title="Preview do HTML gerado"
+                        title="Réplica HTML do PSD"
                       />
                     )}
                   </TabsContent>

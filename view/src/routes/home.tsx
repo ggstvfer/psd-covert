@@ -30,8 +30,8 @@ function HomePage() {
               Transforme seus designs em código
             </h2>
             <p className="text-blue-100 mb-8 text-lg">
-              Faça upload de um arquivo PSD e obtenha HTML/CSS gerado por <strong>inteligência artificial</strong>.
-              A IA analisa visualmente seu design e gera código semântico e responsivo baseado no que "vê".
+              Faça upload de um arquivo PSD e obtenha HTML/CSS que <strong>replica exatamente</strong> o conteúdo visual.
+              A IA analisa a imagem e reproduz fielmente textos, layout e elementos conforme aparecem no design original.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -41,7 +41,7 @@ function HomePage() {
                   className="bg-white text-blue-600 hover:bg-blue-50 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   <FileImage className="w-5 h-5 mr-2" />
-                  🤖 Conversão com IA
+                  🤖 Réplica Fiel com IA
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>

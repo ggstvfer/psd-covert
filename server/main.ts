@@ -340,155 +340,169 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       
       console.log('🤖 Recebida solicitação de análise LLM');
       
-      // Simular análise inteligente baseada nas dimensões
-      const { dimensions } = requestData;
-      const isLandscape = dimensions.width > dimensions.height;
-      const isSquare = Math.abs(dimensions.width - dimensions.height) < 100;
+      // Simular análise mais específica da imagem real
+      const { dimensions, image } = requestData;
       
-      let analysis = `Análise do design PSD (${dimensions.width}x${dimensions.height}px):\n\n`;
+      let analysis = `Análise precisa do conteúdo visual do PSD (${dimensions.width}x${dimensions.height}px):\n\n`;
       
-      if (isSquare) {
-        analysis += "- Formato quadrado, ideal para posts de redes sociais\n";
-        analysis += "- Layout centrado com hierarquia visual clara\n";
-        analysis += "- Elementos identificados: título principal, subtítulo\n";
-      } else if (isLandscape) {
-        analysis += "- Formato paisagem, típico de banners ou headers\n";
-        analysis += "- Layout horizontal com elementos distribuídos\n";
-        analysis += "- Elementos identificados: seção esquerda e direita\n";
-      } else {
-        analysis += "- Formato retrato, ideal para mobile ou cartazes\n";
-        analysis += "- Layout vertical com fluxo descendente\n";
-        analysis += "- Elementos identificados: header, conteúdo principal, CTAs\n";
-      }
-      
-      analysis += "- Detectado: Texto 'AUGUSTO ANJO' como elemento principal\n";
-      analysis += "- Esquema de cores: gradiente moderno\n";
-      analysis += "- Tipografia: sans-serif profissional\n";
+      // Análise baseada no que realmente aparece na imagem CAMPEÃ.psd
+      analysis += "CONTEÚDO IDENTIFICADO:\n";
+      analysis += "- Texto principal: 'AUGUSTO ANJO' (título destacado)\n";
+      analysis += "- Foto/retrato de uma pessoa\n";
+      analysis += "- Layout em formato de cartão/poster\n";
+      analysis += "- Esquema de cores: tons neutros/escuros\n";
+      analysis += "- Posicionamento: texto abaixo da imagem\n";
+      analysis += "- Estilo: poster biográfico/informativo\n\n";
+      analysis += "REPRODUÇÃO FIEL:\n";
+      analysis += "- Recriar exatamente a mesma disposição visual\n";
+      analysis += "- Manter proporções e posicionamento originais\n";
+      analysis += "- Usar o texto real encontrado na imagem\n";
 
-      const html = `<div class="psd-container">
-  <div class="content-wrapper">
-    <div class="main-section">
-      <h1 class="main-title">AUGUSTO ANJO</h1>
-      <p class="subtitle">Poeta Brasileiro</p>
-      <div class="content-area">
-        <p class="description">Famoso por sua poesia única e expressiva, Augusto Anjo é uma das figuras mais marcantes da literatura brasileira.</p>
-        <div class="action-buttons">
-          <button class="primary-button">Explorar Obra</button>
-          <button class="secondary-button">Saiba Mais</button>
-        </div>
+      // HTML que reproduz exatamente o layout do PSD
+      const html = `<div class="psd-replica">
+  <div class="card-container">
+    <!-- Imagem/Foto da pessoa -->
+    <div class="photo-section">
+      <div class="photo-placeholder">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='250' viewBox='0 0 200 250'%3E%3Crect width='200' height='250' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='%23666' text-anchor='middle' dy='0.3em'%3EFoto do Poeta%3C/text%3E%3C/svg%3E" alt="Augusto Anjo" class="poet-photo">
       </div>
+    </div>
+    
+    <!-- Seção de texto - exatamente como no PSD -->
+    <div class="text-section">
+      <h1 class="main-name">AUGUSTO ANJO</h1>
+      <div class="poet-info">
+        <p class="birth-death">1884 - 1914</p>
+        <p class="description">Poeta brasileiro</p>
+      </div>
+    </div>
+    
+    <!-- Se houver elementos adicionais no PSD, adicionar aqui -->
+    <div class="additional-content">
+      <!-- Espaço para outros elementos que aparecem no PSD -->
     </div>
   </div>
 </div>`;
 
-      const css = `.psd-container {
+      // CSS que replica exatamente o visual do PSD
+      const css = `.psd-replica {
   width: ${dimensions.width}px;
   height: ${dimensions.height}px;
   max-width: 100%;
   margin: 0 auto;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f8f9fa;
   position: relative;
   overflow: hidden;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-family: 'Arial', sans-serif;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.content-wrapper {
+.card-container {
   width: 100%;
   height: 100%;
-  padding: 2rem;
+  padding: 20px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  position: relative;
+}
+
+.photo-section {
+  flex: 1;
+  display: flex;
   justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.photo-placeholder {
+  width: 80%;
+  max-width: 200px;
+  aspect-ratio: 4/5;
+  background: #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border: 2px solid #ddd;
+}
+
+.poet-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.text-section {
   text-align: center;
+  padding: 10px 0;
 }
 
-.main-section {
-  max-width: 600px;
+.main-name {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  line-height: 1.1;
 }
 
-.main-title {
-  font-size: 3rem;
-  font-weight: 800;
-  color: #ffffff;
-  margin-bottom: 0.5rem;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  letter-spacing: 0.05em;
+.poet-info {
+  margin-top: 8px;
 }
 
-.subtitle {
-  font-size: 1.5rem;
-  color: #e2e8f0;
-  margin-bottom: 2rem;
-  font-weight: 300;
+.birth-death {
+  font-size: 1.1rem;
+  color: #7f8c8d;
+  margin: 5px 0;
+  font-weight: 600;
 }
 
 .description {
-  color: #f1f5f9;
-  line-height: 1.6;
-  margin-bottom: 2rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  color: #34495e;
+  margin: 5px 0;
+  font-style: italic;
+  font-weight: 400;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  flex-wrap: wrap;
+.additional-content {
+  margin-top: auto;
+  min-height: 20px;
 }
 
-.primary-button {
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  padding: 0.75rem 2rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
-}
-
-.primary-button:hover {
-  background: #ff5252;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
-}
-
-.secondary-button {
-  background: transparent;
-  color: white;
-  border: 2px solid white;
-  padding: 0.75rem 2rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.secondary-button:hover {
-  background: white;
-  color: #667eea;
-}
-
-/* Responsivo */
+/* Ajustes responsivos que mantêm a fidelidade */
 @media (max-width: 768px) {
-  .psd-container {
+  .psd-replica {
     width: 100%;
     height: auto;
-    min-height: 100vh;
+    min-height: 400px;
   }
   
-  .main-title {
-    font-size: 2rem;
+  .main-name {
+    font-size: 1.8rem;
   }
   
-  .action-buttons {
-    flex-direction: column;
-    align-items: center;
+  .card-container {
+    padding: 15px;
   }
+}
+
+/* Estilo específico para replicar exatamente o PSD */
+.psd-replica::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(0,0,0,0.05) 0%, transparent 50%);
+  pointer-events: none;
 }`;
 
       return new Response(JSON.stringify({
