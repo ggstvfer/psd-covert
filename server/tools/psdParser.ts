@@ -4,9 +4,100 @@ import type { Env } from "../main.ts";
 import { readPsd } from "ag-psd";
 
 /**
- * Maximum file size for PSD processing (50MB)
+ * Maximum file size for PSD processing (30MB - reduced for better performance)
  */
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB
+
+/**
+ * Processing timeout in milliseconds
+ */
+const PROCESSING_TIMEOUT = 25000; // 25 seconds
+
+/**
+ * Process PSD file with optimizations
+ */
+async function processPsdFile(filePath: string, includeImageData: boolean): Promise<any> {
+  // Check if it's a data URL (base64 encoded file)
+  let buffer: ArrayBuffer;
+  let fileSize: number;
+
+  if (filePath.startsWith('data:')) {
+    // Handle base64 data URL
+    const base64Data = filePath.split(',')[1];
+    const binaryString = atob(base64Data);
+    fileSize = binaryString.length;
+
+    // Check file size limit
+    if (fileSize > MAX_FILE_SIZE) {
+      throw new Error(`File too large: ${Math.round(fileSize / 1024 / 1024)}MB. Maximum allowed: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+    }
+
+    console.log(`📊 Processing base64 data: ${Math.round(fileSize / 1024 / 1024)}MB`);
+
+    // Convert to Uint8Array in chunks to avoid memory spikes
+    console.log('🔄 Converting base64 to binary...');
+    const bytes = new Uint8Array(fileSize);
+    for (let i = 0; i < fileSize; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    buffer = bytes.buffer;
+    console.log('✅ Binary conversion completed');
+  } else {
+    // Handle regular file URL
+    const response = await fetch(filePath);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file: ${response.statusText}`);
+    }
+
+    // Check content length if available
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      fileSize = parseInt(contentLength);
+      if (fileSize > MAX_FILE_SIZE) {
+        throw new Error(`File too large: ${Math.round(fileSize / 1024 / 1024)}MB. Maximum allowed: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      }
+    }
+
+    buffer = await response.arrayBuffer();
+    fileSize = buffer.byteLength;
+  }
+
+  console.log(`📈 File size: ${Math.round(fileSize / 1024 / 1024)}MB`);
+
+  // Parse PSD data with memory optimization
+  console.log('🎨 Starting PSD parsing with ag-psd...');
+  const psdData = readPsd(new Uint8Array(buffer));
+
+  // Clear buffer from memory as soon as possible
+  buffer = null as any;
+
+  console.log(`🎨 PSD dimensions: ${psdData.width}x${psdData.height}`);
+  console.log(`📚 Layers found: ${(psdData.children || []).length}`);
+
+  // Extract layer information with optimization (simplified)
+  const layers = extractLayersOptimized(psdData.children || [], false, 2); // Max depth 2, no image data
+
+  // Create summary JSON
+  const psdSummary = {
+    fileName: filePath.split("/").pop() || 'unknown.psd',
+    width: psdData.width,
+    height: psdData.height,
+    layers: layers,
+    metadata: {
+      version: psdData.version,
+      channels: psdData.channels,
+      colorMode: psdData.colorMode,
+      fileSize: fileSize
+    }
+  };
+
+  console.log(`✅ PSD parsing completed successfully`);
+
+  return {
+    success: true,
+    data: psdSummary
+  };
+}
 
 /**
  * Tool for parsing PSD files and extracting layer information
@@ -39,89 +130,22 @@ export const createPsdParserTool = (env: Env) =>
       // Handle different context structures
       const input = (context as any).input || context;
       const { filePath, includeImageData = false } = input;
+
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Processing timeout exceeded')), PROCESSING_TIMEOUT);
+      });
+
       try {
-        console.log(`🔍 Starting PSD parsing for: ${filePath}`);
+        console.log(`� Starting PSD parsing for: ${filePath}`);
 
-        // Check if it's a data URL (base64 encoded file)
-        let buffer: ArrayBuffer;
-        let fileSize: number;
+        // Race between processing and timeout
+        const result = await Promise.race([
+          processPsdFile(filePath, includeImageData),
+          timeoutPromise
+        ]);
 
-        if (filePath.startsWith('data:')) {
-          // Handle base64 data URL
-          const base64Data = filePath.split(',')[1];
-          const binaryString = atob(base64Data);
-          fileSize = binaryString.length;
-
-          // Check file size limit
-          if (fileSize > MAX_FILE_SIZE) {
-            throw new Error(`File too large: ${Math.round(fileSize / 1024 / 1024)}MB. Maximum allowed: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
-          }
-
-        console.log(`📊 Processing base64 data: ${Math.round(fileSize / 1024 / 1024)}MB`);
-
-        // Convert to Uint8Array in chunks to avoid memory spikes
-        console.log('🔄 Converting base64 to binary...');
-        const bytes = new Uint8Array(fileSize);
-        for (let i = 0; i < fileSize; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        buffer = bytes.buffer;
-        console.log('✅ Binary conversion completed');
-        } else {
-          // Handle regular file URL
-          const response = await fetch(filePath);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch file: ${response.statusText}`);
-          }
-
-          // Check content length if available
-          const contentLength = response.headers.get('content-length');
-          if (contentLength) {
-            fileSize = parseInt(contentLength);
-            if (fileSize > MAX_FILE_SIZE) {
-              throw new Error(`File too large: ${Math.round(fileSize / 1024 / 1024)}MB. Maximum allowed: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
-            }
-          }
-
-          buffer = await response.arrayBuffer();
-          fileSize = buffer.byteLength;
-        }
-
-        console.log(`📈 File size: ${Math.round(fileSize / 1024 / 1024)}MB`);
-
-        // Parse PSD data with memory optimization
-        console.log('🎨 Starting PSD parsing with ag-psd...');
-        const psdData = readPsd(new Uint8Array(buffer));
-
-        // Clear buffer from memory as soon as possible
-        buffer = null as any;
-
-        console.log(`🎨 PSD dimensions: ${psdData.width}x${psdData.height}`);
-        console.log(`📚 Layers found: ${(psdData.children || []).length}`);
-
-        // Extract layer information with optimization (simplified)
-        const layers = extractLayersOptimized(psdData.children || [], false, 2); // Max depth 2, no image data
-
-        // Create summary JSON
-        const psdSummary = {
-          fileName: filePath.split("/").pop() || 'unknown.psd',
-          width: psdData.width,
-          height: psdData.height,
-          layers: layers,
-          metadata: {
-            version: psdData.version,
-            channels: psdData.channels,
-            colorMode: psdData.colorMode,
-            fileSize: fileSize
-          }
-        };
-
-        console.log(`✅ PSD parsing completed successfully`);
-
-        return {
-          success: true,
-          data: psdSummary
-        };
+        return result;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`❌ PSD parsing failed: ${errorMessage}`);

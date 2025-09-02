@@ -5,8 +5,8 @@ compatibility_date = "2025-06-17"
 compatibility_flags = [ "nodejs_compat" ]
 
 [limits]
-cpu_ms = 10000
-memory_mb = 512
+cpu_ms = 50000
+memory_mb = 1024
 
 [assets]
 directory = "./view-build"
