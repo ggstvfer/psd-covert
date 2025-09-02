@@ -30,15 +30,27 @@ function HomePage() {
               Transforme seus designs em código
             </h2>
             <p className="text-blue-100 mb-8 text-lg">
-              Faça upload de um arquivo PSD e obtenha HTML/CSS otimizado automaticamente.
-              Suporte completo a layouts responsivos, componentes reutilizáveis e validação visual.
+              Faça upload de um arquivo PSD e obtenha HTML/CSS baseado nas <strong>camadas reais</strong> do arquivo.
+              Conversão verdadeira que preserva estrutura, posicionamento e conteúdo originais.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/direct">
+              <Link to="/real">
                 <Button
                   size="lg"
                   className="bg-white text-blue-600 hover:bg-blue-50 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <FileImage className="w-5 h-5 mr-2" />
+                  Conversão REAL
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+              
+              <Link to="/direct">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-transparent border-white text-white hover:bg-white hover:text-blue-600 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   <FileImage className="w-5 h-5 mr-2" />
                   Website Completo
@@ -50,21 +62,9 @@ function HomePage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="bg-transparent border-white text-white hover:bg-white hover:text-blue-600 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  <FileImage className="w-5 h-5 mr-2" />
-                  Conversão Simples
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-              
-              <Link to="/converter">
-                <Button
-                  size="lg"
-                  variant="outline"
                   className="bg-transparent border-white text-white hover:bg-white hover:text-blue-600 font-semibold px-6 py-3 text-base shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  Avançado
+                  Simples
                 </Button>
               </Link>
             </div>
