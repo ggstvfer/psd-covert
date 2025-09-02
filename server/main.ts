@@ -347,8 +347,8 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       const isPortrait = dimensions.height > dimensions.width;
       
       // Detectar possível tipo de design baseado nas dimensões
-      let designType = 'unknown';
-      let suggestedElements = [];
+      let designType: string = 'unknown';
+      let suggestedElements: string[] = [];
       
       if (isSquare) {
         if (dimensions.width <= 600) {
