@@ -345,7 +345,17 @@ function PSDConverterPage() {
               const b64 = btoa(String.fromCharCode(...payload));
               const appendRes = await fetch(`${API_BASE_URL}/api/psd-chunks/append`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uploadId: uploadIdLocal, chunkBase64: b64, index: idx }) });
               const appendJson = await appendRes.json();
-              if(!appendJson.success) throw new Error('Falha append chunk '+ idx + ': ' + appendJson.error);
+              if(!appendJson.success){
+                if(appendJson.error === 'Invalid uploadId'){
+                  console.warn('⚠️ Invalid uploadId detectado — migrando para modo Durable Object automaticamente');
+                  // Ativa DO e reinicia conversão
+                  setUseDurableObject(true);
+                  setIsConverting(false);
+                  setTimeout(()=>handleConvert(),50);
+                  return; // abort loop
+                }
+                throw new Error('Falha append chunk '+ idx + ': ' + appendJson.error);
+              }
               received = appendJson.totalSize || received + slice.length;
               if(appendJson.progress != null){
                 setUploadProgress(appendJson.progress);

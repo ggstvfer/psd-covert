@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Env } from "../main.ts";
 import { readPsd } from "ag-psd";
 import { psdChunkTools } from './psdChunkUpload.ts';
+import { defaultHybridConfig, detectProcessingStrategy, estimateProcessingTime, isViableForFreeTier } from '../hybrid/hybridConfig.ts';
 
 // Build/version marker para diagnosticar se o worker em produção está atualizado
 export const BUILD_VERSION = (() => {
@@ -682,11 +683,13 @@ export const psdTools = (env: Env) => [
 ];
 
 // ================== QUICK ANALYZE TOOL (PRE-STEP) ==================
+// Legacy estimateStrategy replaced by hybrid-config driven detection; keep wrapper for backward compatibility.
 function estimateStrategy(fileSize: number, layerCount: number): 'fast' | 'standard' | 'chunked' {
-  const mb = fileSize / 1024 / 1024;
-  if (mb > 40 || layerCount > 150) return 'chunked';
-  if (mb > 20 || layerCount > 80) return 'standard';
-  return 'fast';
+  // Map existing hybrid categories to legacy naming
+  const stratKey = detectProcessingStrategy(fileSize, layerCount);
+  if (stratKey === 'smallFiles') return 'fast';
+  if (stratKey === 'mediumFiles') return 'standard';
+  return 'chunked';
 }
 
 export const createPsdAnalyzeTool = (env: Env) => createTool({
@@ -738,6 +741,9 @@ export const createPsdAnalyzeTool = (env: Env) => createTool({
         hasChildren: Array.isArray((l as any).children) && (l as any).children.length>0
       }));
       const suggestedStrategy = estimateStrategy(fileSize, layerCount);
+      const hybridKey = detectProcessingStrategy(fileSize, layerCount);
+      const estimatedTime = estimateProcessingTime(fileSize, hybridKey);
+      const viableFree = isViableForFreeTier(fileSize, estimatedTime);
       return {
         success: true,
         fileName: filePath.split('/').pop(),
@@ -747,6 +753,16 @@ export const createPsdAnalyzeTool = (env: Env) => createTool({
         estimatedLayers: layerCount,
         sampledLayers,
         suggestedStrategy,
+        hybrid: {
+          strategyKey: hybridKey,
+          estimatedTimeMs: estimatedTime,
+          freeTierViable: viableFree,
+          config: {
+            smallMax: defaultHybridConfig.strategies.smallFiles.maxSize,
+            mediumMax: defaultHybridConfig.strategies.mediumFiles.maxSize,
+            largeMax: defaultHybridConfig.strategies.largeFiles.maxSize
+          }
+        },
         limits: { maxFileSize: MAX_FILE_SIZE, maxLayers: MAX_LAYERS, maxDepth: MAX_DEPTH, timeoutMs: PROCESSING_TIMEOUT }
       };
     } catch (err) {

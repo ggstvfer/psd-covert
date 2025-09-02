@@ -4,46 +4,68 @@
  */
 
 export interface HybridConfig {
-  // Limites do plano gratuito
   freeTierLimits: {
-    cpuMs: 10000;      // 10 segundos
-    memoryMb: 128;     // 128 MB
-    requestsPerDay: 100000;
+    cpuMs: number;
+    memoryMb: number;
+    requestsPerDay: number;
   };
-
-  // Estratégias de processamento
   strategies: {
-    // Para arquivos pequenos (< 5MB)
     smallFiles: {
-      maxSize: 5 * 1024 * 1024, // 5MB
-      method: 'direct', // Processamento direto
-      estimatedTime: 2000 // ~2s
+      maxSize: number;
+      method: 'direct';
+      estimatedTime: number;
     };
-
-    // Para arquivos médios (5-15MB)
     mediumFiles: {
-      maxSize: 15 * 1024 * 1024; // 15MB
-      method: 'optimized'; // Processamento otimizado
-      estimatedTime: 5000; // ~5s
+      maxSize: number;
+      method: 'optimized';
+      estimatedTime: number;
     };
-
-    // Para arquivos grandes (> 15MB)
     largeFiles: {
-      maxSize: 50 * 1024 * 1024; // 50MB
-      method: 'hybrid'; // Arquitetura híbrida
-      estimatedTime: 8000; // ~8s
+      maxSize: number;
+      method: 'hybrid';
+      estimatedTime: number;
     };
   };
-
-  // Configuração de chunks para processamento híbrido
   chunking: {
-    maxLayersPerChunk: 10;
-    maxDepth: 1;
-    enableImageOptimization: false;
-    enableTextExtraction: true;
-    enableShapeDetection: false;
+    maxLayersPerChunk: number;
+    maxDepth: number;
+    enableImageOptimization: boolean;
+    enableTextExtraction: boolean;
+    enableShapeDetection: boolean;
   };
 }
+
+export const defaultHybridConfig: HybridConfig = {
+  freeTierLimits: {
+    cpuMs: 10000,
+    memoryMb: 128,
+    requestsPerDay: 100000,
+  },
+  strategies: {
+    smallFiles: {
+      maxSize: 5 * 1024 * 1024,
+      method: 'direct',
+      estimatedTime: 2000,
+    },
+    mediumFiles: {
+      maxSize: 15 * 1024 * 1024,
+      method: 'optimized',
+      estimatedTime: 5000,
+    },
+    largeFiles: {
+      maxSize: 50 * 1024 * 1024,
+      method: 'hybrid',
+      estimatedTime: 8000,
+    },
+  },
+  chunking: {
+    maxLayersPerChunk: 10,
+    maxDepth: 1,
+    enableImageOptimization: false,
+    enableTextExtraction: true,
+    enableShapeDetection: false,
+  },
+};
 
 /**
  * Detector de estratégia baseado no arquivo
