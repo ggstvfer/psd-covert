@@ -97,8 +97,8 @@ function PSDConverterPage() {
   useEffect(()=>{
     if(selectedFile){
       setChunkMode(selectedFile.size > 1*1024*1024);
-      // Auto enable DO for >20MB
-      if(selectedFile.size > 20*1024*1024){
+      // Auto enable DO for >15MB (EXTREME_THRESHOLD)
+      if(selectedFile.size > 15*1024*1024){
         setUseDurableObject(true);
       }
       // Auto-enable GZIP for large files (>5MB) since PSDs are always big
@@ -171,17 +171,20 @@ function PSDConverterPage() {
       console.log('🎯 Framework:', selectedFramework);
       console.log('⚙️ Opções:', { responsive, semantic, accessibility });
 
-      const LARGE_THRESHOLD = 20 * 1024 * 1024; // 20MB
-      const EXTREME_THRESHOLD = 40 * 1024 * 1024; // 40MB
+      const LARGE_THRESHOLD = 10 * 1024 * 1024; // 10MB - reduced for better chunked adoption
+      const EXTREME_THRESHOLD = 15 * 1024 * 1024; // 15MB - force chunked for very large files
       if (selectedFile.size > LARGE_THRESHOLD) {
         console.log('📈 Arquivo grande detectado, estratégia híbrida');
       }
 
   // Create data URL / FormData / local parse strategy
   let fileData: string | FormData | undefined;
-  let useFormData = selectedFile.size > LARGE_THRESHOLD;
+  let useFormData = selectedFile.size > LARGE_THRESHOLD && selectedFile.size <= EXTREME_THRESHOLD; // Only use FormData for medium-large files
   let localLightParsed: any = null;
   let psdData: any; // unified declaration to avoid redeclare/hoist issues
+
+  // Force chunked upload for extremely large files
+  const forceChunked = selectedFile.size > EXTREME_THRESHOLD || chunkMode;
   if (selectedFile.size > EXTREME_THRESHOLD) {
         try {
           console.log('🧪 Parse leve local (EXTREME_THRESHOLD)');
@@ -207,8 +210,8 @@ function PSDConverterPage() {
   if (localLightParsed) {
         psdData = localLightParsed; // direto sem parse backend
         setConversionProgress(40);
-      } else if (useFormData) {
-        console.log('📦 Arquivo muito grande, usando FormData para upload direto...');
+      } else if (useFormData && !forceChunked) {
+        console.log('📦 Arquivo grande, usando FormData para upload direto...');
         console.log('💡 Isso pode levar alguns minutos para arquivos grandes');
         setConversionProgress(15);
 
@@ -217,6 +220,9 @@ function PSDConverterPage() {
         formData.append('file', selectedFile);
         formData.append('includeImageData', 'false');
         fileData = formData;
+      } else if (forceChunked) {
+        console.log('🚚 Arquivo muito grande, forçando upload chunked...');
+        // Skip to chunked upload logic below
       } else {
         console.log('🔄 Convertendo arquivo para data URL...');
         const fileReader = new FileReader();
@@ -231,7 +237,7 @@ function PSDConverterPage() {
       setConversionProgress(25);
 
   // Only proceed with backend parsing if we still don't have psdData
-      if(!psdData && chunkMode){
+      if(!psdData && (chunkMode || forceChunked)){
         console.log('🚚 Usando upload chunked');
         setConversionProgress(30);
         if(useDurableObject){

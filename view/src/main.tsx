@@ -1,5 +1,4 @@
-﻿import { StrictMode } from "react";
-import ReactDOM from "react-dom/client";
+﻿import ReactDOM from "react-dom/client";
 import {
   createRootRoute,
   createRouter,
@@ -29,10 +28,6 @@ const router = createRouter({
   context: {
     queryClient,
   },
-  defaultPreload: "intent",
-  scrollRestoration: true,
-  defaultStructuralSharing: true,
-  defaultPreloadStaleTime: 0,
 });
 
 declare module "@tanstack/react-router" {
@@ -45,11 +40,9 @@ const rootElement = document.getElementById("root");
 if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <Toaster />
-      </QueryClientProvider>
-    </StrictMode>,
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+      <Toaster />
+    </QueryClientProvider>
   );
 }

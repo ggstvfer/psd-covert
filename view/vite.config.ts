@@ -13,13 +13,12 @@ export default defineConfig({
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react')) return 'react';
-            if (id.includes('ag-psd')) return 'psd';
-            if (id.includes('@tanstack')) return 'tanstack';
-            return 'vendor';
-          }
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          'react-router': ['@tanstack/react-router'],
+          'react-query': ['@tanstack/react-query'],
+          vendor: ['lucide-react', 'clsx', 'tailwind-merge'],
+          psd: ['ag-psd']
         },
       },
     },
