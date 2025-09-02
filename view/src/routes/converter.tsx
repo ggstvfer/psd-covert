@@ -101,6 +101,10 @@ function PSDConverterPage() {
       if(selectedFile.size > 20*1024*1024){
         setUseDurableObject(true);
       }
+      // Auto-enable GZIP for large files (>5MB) since PSDs are always big
+      if(selectedFile.size > 5*1024*1024){
+        setUseGzip(true);
+      }
     } else {
       setChunkMode(false);
     }
@@ -649,7 +653,7 @@ function PSDConverterPage() {
                     onChange={e=>setUseGzip(e.target.checked)}
                     className="rounded"
                   />
-                  <span>Compressão GZIP chunks</span>
+                  <span>Compressão GZIP chunks {selectedFile && selectedFile.size > 5*1024*1024 ? '(auto-ativado)' : ''}</span>
                 </label>
                 {chunkMode && (
                   <Button type="button" variant="outline" disabled={partialLoading} onClick={async ()=>{
