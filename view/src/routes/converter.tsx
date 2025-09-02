@@ -479,7 +479,20 @@ function PSDConverterPage() {
       setValidationResult(validationResult);
 
       // Generate preview
-      const blob = new Blob([conversionResult.html], { type: 'text/html' });
+      const fullHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSD Preview</title>
+    <style>${conversionResult.css}</style>
+</head>
+<body>
+    ${conversionResult.html}
+</body>
+</html>`;
+      const blob = new Blob([fullHtml], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
 

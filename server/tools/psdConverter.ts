@@ -49,38 +49,66 @@ export const createPsdToHtmlTool = (env: Env) =>
       const { psdData, targetFramework, responsive, semantic, accessibility } = input;
 
       try {
-        console.log('🎨 Starting simplified PSD to HTML conversion...');
+        console.log('🎨 Starting PSD to HTML conversion...');
 
-        // Generate basic HTML structure without AI for better performance
-        const html = generateBasicHTML(psdData, targetFramework, responsive, semantic);
-        const css = generateBasicCSS(psdData, responsive);
+        // Analyze PSD layers and extract components
+        const components = analyzePSDComponents(psdData.layers || []);
 
-        console.log('✅ Basic conversion completed - HTML length:', html.length, 'CSS length:', css.length);
+        console.log(`📊 Found ${components.length} components from ${psdData.layers?.length || 0} layers`);
+        console.log('🔍 Components:', components.slice(0, 3)); // Log first 3 components
+
+        // Generate code based on target framework
+        let result;
+        switch (targetFramework.toLowerCase()) {
+          case 'react':
+            result = generateReactCode(components, psdData, responsive, semantic, accessibility);
+            break;
+          case 'vue':
+            result = generateVueCode(components, psdData, responsive, semantic, accessibility);
+            break;
+          case 'angular':
+            result = generateAngularCode(components, psdData, responsive, semantic, accessibility);
+            break;
+          case 'vanilla':
+          default:
+            result = generateVanillaCode(components, psdData, responsive, semantic, accessibility);
+            break;
+        }
+
+        console.log('✅ Conversion completed - HTML length:', result.html.length, 'CSS length:', result.css.length);
+        console.log('📄 Generated HTML preview:', result.html.substring(0, 500)); // Log first 500 chars
 
         return {
           success: true,
-          html,
-          css,
-          components: [], // Simplified - no component analysis
+          html: result.html,
+          css: result.css,
+          components: result.components,
           metadata: {
             framework: targetFramework,
             responsive,
             semantic,
+            accessibility,
             generatedAt: new Date().toISOString()
           }
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('❌ Conversion failed:', errorMessage);
+
+        // Fallback to basic HTML
+        const html = generateBasicHTML(psdData, targetFramework, responsive, semantic);
+        const css = generateBasicCSS(psdData, responsive);
+
         return {
           success: false,
-          html: '',
-          css: '',
+          html,
+          css,
           components: [],
           metadata: {
             framework: targetFramework,
             responsive,
             semantic,
+            accessibility,
             generatedAt: new Date().toISOString()
           },
           error: `Failed to convert PSD: ${errorMessage}`
@@ -458,15 +486,21 @@ function generateHTMLElement(component: any, semantic: boolean, accessibility: b
   const tag = semantic ? getSemanticTag(component.type) : 'div';
   const attributes = generateElementAttributes(component, accessibility);
 
+  console.log(`  🏗️ Generating HTML for ${component.name} (${component.type}) -> <${tag}>`);
+
   if (component.children && component.children.length > 0) {
     const children = component.children.map((child: any) => generateHTMLElement(child, semantic, accessibility)).join('\n  ');
-    return `  <${tag}${attributes}>
+    const result = `  <${tag}${attributes}>
 ${children}
   </${tag}>`;
+    console.log(`    📦 Generated container with ${component.children.length} children`);
+    return result;
   }
 
   const content = getElementContent(component);
-  return `  <${tag}${attributes}>${content}</${tag}>`;
+  const result = `  <${tag}${attributes}>${content}</${tag}>`;
+  console.log(`    📝 Generated element with content: "${content.substring(0, 50)}..."`);
+  return result;
 }
 
 /**
@@ -681,9 +715,12 @@ function generateBaseStyles(components: any[], responsive: boolean): string {
  */
 function analyzePSDComponents(layers: any[]): any[] {
   const components: any[] = [];
+  console.log('🔍 Analyzing PSD layers:', layers?.length || 0);
 
   function processLayer(layer: any, depth = 0): any {
+    console.log(`  📋 Processing layer: ${layer.name} (${layer.type}) at depth ${depth}`);
     const componentType = identifyComponentType(layer.name, layer);
+    console.log(`    🎯 Identified as: ${componentType}`);
 
     const component = {
       id: `comp_${components.length}`,
@@ -699,11 +736,13 @@ function analyzePSDComponents(layers: any[]): any[] {
       opacity: layer.opacity || 100
     };
 
+    console.log(`    📐 Position: ${component.position.left}, ${component.position.top} | Size: ${component.dimensions.width}x${component.dimensions.height}`);
     components.push(component);
     return component;
   }
 
   layers.forEach(layer => processLayer(layer));
+  console.log(`✅ Analysis complete: ${components.length} components extracted`);
   return components;
 }
 

@@ -368,4 +368,6 @@ const runtime = withRuntime<Env, typeof StateSchema>({
 });
 
 export const Workflow = runtime.Workflow;
+export { UploadCoordinator } from './uploadCoordinator.ts';
+export { PsdWorkflow } from './workflowPsd.ts';
 export default runtime;
