@@ -9,6 +9,7 @@ import {
 import HomePage from "./routes/home.tsx";
 import ConverterPage from "./routes/converter.tsx";
 import ConverterSimple from "./routes/converter-simple.tsx";
+import ConverterDirect from "./routes/converter-direct.tsx";
 import { Toaster } from "sonner";
 
 import "./styles.css";
@@ -25,10 +26,18 @@ const converterSimpleRoute = createRoute({
   component: ConverterSimple,
 });
 
+// Criar rota direta
+const converterDirectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/direct",
+  component: ConverterDirect,
+});
+
 const routeTree = rootRoute.addChildren([
   HomePage(rootRoute),
   ConverterPage(rootRoute),
   converterSimpleRoute,
+  converterDirectRoute,
 ]);
 
 const queryClient = new QueryClient();
