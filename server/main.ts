@@ -340,141 +340,461 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       
       console.log('🤖 Recebida solicitação de análise LLM');
       
-      // Simular análise mais específica da imagem real
+      // Análise inteligente baseada na imagem e dimensões
       const { dimensions, image } = requestData;
+      const isLandscape = dimensions.width > dimensions.height;
+      const isSquare = Math.abs(dimensions.width - dimensions.height) < 100;
+      const isPortrait = dimensions.height > dimensions.width;
       
-      let analysis = `Análise precisa do conteúdo visual do PSD (${dimensions.width}x${dimensions.height}px):\n\n`;
+      // Detectar possível tipo de design baseado nas dimensões
+      let designType = 'unknown';
+      let suggestedElements = [];
       
-      // Análise baseada no que realmente aparece na imagem CAMPEÃ.psd
-      analysis += "CONTEÚDO IDENTIFICADO:\n";
-      analysis += "- Texto principal: 'AUGUSTO ANJO' (título destacado)\n";
-      analysis += "- Foto/retrato de uma pessoa\n";
-      analysis += "- Layout em formato de cartão/poster\n";
-      analysis += "- Esquema de cores: tons neutros/escuros\n";
-      analysis += "- Posicionamento: texto abaixo da imagem\n";
-      analysis += "- Estilo: poster biográfico/informativo\n\n";
-      analysis += "REPRODUÇÃO FIEL:\n";
-      analysis += "- Recriar exatamente a mesma disposição visual\n";
-      analysis += "- Manter proporções e posicionamento originais\n";
-      analysis += "- Usar o texto real encontrado na imagem\n";
+      if (isSquare) {
+        if (dimensions.width <= 600) {
+          designType = 'social-post';
+          suggestedElements = ['título principal', 'imagem/ícone', 'texto descritivo'];
+        } else {
+          designType = 'poster-square';
+          suggestedElements = ['título grande', 'imagem central', 'informações adicionais'];
+        }
+      } else if (isLandscape) {
+        if (dimensions.width / dimensions.height > 2) {
+          designType = 'banner';
+          suggestedElements = ['logo/marca', 'título', 'call-to-action'];
+        } else {
+          designType = 'card-horizontal';
+          suggestedElements = ['seção esquerda', 'seção direita', 'imagem'];
+        }
+      } else if (isPortrait) {
+        if (dimensions.height / dimensions.width > 1.5) {
+          designType = 'mobile-screen';
+          suggestedElements = ['header', 'conteúdo principal', 'footer/ações'];
+        } else {
+          designType = 'card-vertical';
+          suggestedElements = ['imagem/foto', 'título', 'descrição'];
+        }
+      }
+      
+      let analysis = `Análise automática do PSD (${dimensions.width}x${dimensions.height}px):\n\n`;
+      analysis += `TIPO DETECTADO: ${designType}\n`;
+      analysis += `FORMATO: ${isSquare ? 'Quadrado' : isLandscape ? 'Paisagem' : 'Retrato'}\n\n`;
+      analysis += `ELEMENTOS PROVÁVEIS:\n`;
+      suggestedElements.forEach(elem => analysis += `- ${elem}\n`);
+      analysis += `\nESTRATÉGIA DE REPRODUÇÃO:\n`;
+      analysis += `- Layout adaptado ao formato ${designType}\n`;
+      analysis += `- Estrutura HTML semântica\n`;
+      analysis += `- CSS responsivo mantendo proporções\n`;
+      analysis += `- Placeholders para imagens\n`;
+      analysis += `- Tipografia moderna e limpa\n`;
 
-      // HTML que reproduz exatamente o layout do PSD
-      const html = `<div class="psd-replica">
-  <div class="card-container">
-    <!-- Imagem/Foto da pessoa -->
-    <div class="photo-section">
-      <div class="photo-placeholder">
-        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='250' viewBox='0 0 200 250'%3E%3Crect width='200' height='250' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='%23666' text-anchor='middle' dy='0.3em'%3EFoto do Poeta%3C/text%3E%3C/svg%3E" alt="Augusto Anjo" class="poet-photo">
+      // Gerar HTML baseado no tipo detectado
+      let html = '';
+      let css = '';
+
+      if (designType === 'social-post' || designType === 'poster-square') {
+        html = `<div class="psd-replica">
+  <div class="square-container">
+    <div class="image-section">
+      <div class="main-image">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect width='200' height='150' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='%23666' text-anchor='middle' dy='0.3em'%3EImagem Principal%3C/text%3E%3C/svg%3E" alt="Conteúdo principal" class="content-image">
       </div>
     </div>
     
-    <!-- Seção de texto - exatamente como no PSD -->
     <div class="text-section">
-      <h1 class="main-name">AUGUSTO ANJO</h1>
-      <div class="poet-info">
-        <p class="birth-death">1884 - 1914</p>
-        <p class="description">Poeta brasileiro</p>
+      <h1 class="main-title">TÍTULO PRINCIPAL</h1>
+      <p class="subtitle">Subtítulo ou descrição</p>
+      <div class="additional-info">
+        <p class="description">Informações adicionais do design</p>
       </div>
-    </div>
-    
-    <!-- Se houver elementos adicionais no PSD, adicionar aqui -->
-    <div class="additional-content">
-      <!-- Espaço para outros elementos que aparecem no PSD -->
     </div>
   </div>
 </div>`;
 
-      // CSS que replica exatamente o visual do PSD
-      const css = `.psd-replica {
+      } else if (designType === 'banner') {
+        html = `<div class="psd-replica">
+  <div class="banner-container">
+    <div class="left-section">
+      <div class="logo-area">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'%3E%3Crect width='80' height='40' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='10' fill='%23666' text-anchor='middle' dy='0.3em'%3ELOGO%3C/text%3E%3C/svg%3E" alt="Logo" class="logo">
+      </div>
+    </div>
+    
+    <div class="center-section">
+      <h1 class="banner-title">TÍTULO DO BANNER</h1>
+      <p class="banner-subtitle">Mensagem principal</p>
+    </div>
+    
+    <div class="right-section">
+      <button class="cta-button">AÇÃO</button>
+    </div>
+  </div>
+</div>`;
+
+      } else if (designType === 'card-horizontal') {
+        html = `<div class="psd-replica">
+  <div class="horizontal-card">
+    <div class="left-content">
+      <h1 class="card-title">TÍTULO PRINCIPAL</h1>
+      <p class="card-subtitle">Subtítulo</p>
+      <p class="card-description">Descrição do conteúdo principal do design.</p>
+      <div class="card-actions">
+        <button class="primary-btn">Principal</button>
+        <button class="secondary-btn">Secundário</button>
+      </div>
+    </div>
+    
+    <div class="right-content">
+      <div class="image-container">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23f5f5f5'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='16' fill='%23888' text-anchor='middle' dy='0.3em'%3EImagem%3C/text%3E%3C/svg%3E" alt="Imagem principal" class="main-image">
+      </div>
+    </div>
+  </div>
+</div>`;
+
+      } else {
+        // Formato vertical/mobile (padrão)
+        html = `<div class="psd-replica">
+  <div class="vertical-container">
+    <header class="header-section">
+      <div class="brand-area">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect width='60' height='60' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='12' fill='%23666' text-anchor='middle' dy='0.3em'%3EÍcone%3C/text%3E%3C/svg%3E" alt="Ícone" class="brand-icon">
+      </div>
+    </header>
+    
+    <main class="main-content">
+      <div class="hero-image">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='200' viewBox='0 0 250 200'%3E%3Crect width='250' height='200' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='%23777' text-anchor='middle' dy='0.3em'%3EImagem Principal%3C/text%3E%3C/svg%3E" alt="Conteúdo principal" class="hero-img">
+      </div>
+      
+      <div class="content-text">
+        <h1 class="main-title">TÍTULO PRINCIPAL</h1>
+        <h2 class="subtitle">Subtítulo</h2>
+        <p class="description">Descrição ou informações adicionais do design.</p>
+      </div>
+      
+      <div class="action-area">
+        <button class="primary-action">Ação Principal</button>
+        <button class="secondary-action">Ação Secundária</button>
+      </div>
+    </main>
+  </div>
+</div>`;
+      }
+
+      // CSS adaptativo baseado no tipo
+      const baseCSS = `.psd-replica {
   width: ${dimensions.width}px;
   height: ${dimensions.height}px;
   max-width: 100%;
   margin: 0 auto;
-  background: #f8f9fa;
   position: relative;
   overflow: hidden;
-  font-family: 'Arial', sans-serif;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}`;
 
-.card-container {
+      if (designType === 'social-post' || designType === 'poster-square') {
+        css = baseCSS + `
+.square-container {
   width: 100%;
   height: 100%;
-  padding: 20px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
-  position: relative;
-}
-
-.photo-section {
-  flex: 1;
-  display: flex;
   justify-content: center;
   align-items: center;
+  text-align: center;
+}
+
+.image-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 20px;
 }
 
-.photo-placeholder {
-  width: 80%;
-  max-width: 200px;
-  aspect-ratio: 4/5;
-  background: #e8e8e8;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  border: 2px solid #ddd;
+.main-image {
+  max-width: 60%;
+  max-height: 60%;
 }
 
-.poet-photo {
+.content-image {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
 }
 
 .text-section {
   text-align: center;
-  padding: 10px 0;
 }
 
-.main-name {
-  font-size: 2.2rem;
-  font-weight: 900;
-  color: #2c3e50;
-  margin: 0 0 10px 0;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-  line-height: 1.1;
+.main-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 12px 0;
+  letter-spacing: 0.05em;
 }
 
-.poet-info {
-  margin-top: 8px;
-}
-
-.birth-death {
-  font-size: 1.1rem;
-  color: #7f8c8d;
-  margin: 5px 0;
-  font-weight: 600;
+.subtitle {
+  font-size: 1.3rem;
+  color: #64748b;
+  margin: 8px 0;
+  font-weight: 500;
 }
 
 .description {
   font-size: 1rem;
-  color: #34495e;
-  margin: 5px 0;
-  font-style: italic;
-  font-weight: 400;
+  color: #475569;
+  line-height: 1.5;
+}`;
+
+      } else if (designType === 'banner') {
+        css = baseCSS + `
+.banner-container {
+  width: 100%;
+  height: 100%;
+  padding: 20px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
 }
 
-.additional-content {
-  margin-top: auto;
-  min-height: 20px;
+.left-section {
+  flex: 0 0 auto;
 }
 
-/* Ajustes responsivos que mantêm a fidelidade */
+.logo {
+  height: 40px;
+  width: auto;
+}
+
+.center-section {
+  flex: 1;
+  text-align: center;
+}
+
+.banner-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.banner-subtitle {
+  font-size: 1.1rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.right-section {
+  flex: 0 0 auto;
+}
+
+.cta-button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cta-button:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}`;
+
+      } else if (designType === 'card-horizontal') {
+        css = baseCSS + `
+.horizontal-card {
+  width: 100%;
+  height: 100%;
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
+.left-content {
+  flex: 1;
+  text-align: left;
+}
+
+.card-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 12px 0;
+}
+
+.card-subtitle {
+  font-size: 1.4rem;
+  color: #64748b;
+  margin: 0 0 16px 0;
+  font-weight: 500;
+}
+
+.card-description {
+  font-size: 1.1rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0 0 24px 0;
+}
+
+.card-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.primary-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-btn {
+  background: transparent;
+  color: #3b82f6;
+  border: 2px solid #3b82f6;
+  padding: 10px 22px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.right-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.image-container {
+  max-width: 100%;
+}
+
+.main-image {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}`;
+
+      } else {
+        // CSS para formato vertical
+        css = baseCSS + `
+.vertical-container {
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.header-section {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.brand-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.hero-image {
+  margin-bottom: 24px;
+}
+
+.hero-img {
+  max-width: 80%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.content-text {
+  margin-bottom: 24px;
+}
+
+.main-title {
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 12px 0;
+  letter-spacing: 0.05em;
+}
+
+.subtitle {
+  font-size: 1.5rem;
+  color: #64748b;
+  margin: 0 0 16px 0;
+  font-weight: 500;
+}
+
+.description {
+  font-size: 1.1rem;
+  color: #475569;
+  line-height: 1.6;
+  max-width: 80%;
+}
+
+.action-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.primary-action {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.secondary-action {
+  background: transparent;
+  color: #3b82f6;
+  border: 2px solid #3b82f6;
+  padding: 12px 26px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}`;
+      }
+
+      // CSS responsivo comum
+      css += `
+
+/* Responsivo para todos os tipos */
 @media (max-width: 768px) {
   .psd-replica {
     width: 100%;
@@ -482,27 +802,20 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     min-height: 400px;
   }
   
-  .main-name {
-    font-size: 1.8rem;
+  .horizontal-card {
+    flex-direction: column;
+    text-align: center;
   }
   
-  .card-container {
-    padding: 15px;
+  .banner-container {
+    flex-direction: column;
+    text-align: center;
+    gap: 20px;
   }
-}
-
-/* Estilo específico para replicar exatamente o PSD */
-.psd-replica::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 50%),
-    radial-gradient(circle at 70% 80%, rgba(0,0,0,0.05) 0%, transparent 50%);
-  pointer-events: none;
+  
+  .main-title, .card-title, .banner-title {
+    font-size: 2rem;
+  }
 }`;
 
       return new Response(JSON.stringify({
