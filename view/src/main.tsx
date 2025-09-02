@@ -11,6 +11,7 @@ import ConverterPage from "./routes/converter.tsx";
 import ConverterSimple from "./routes/converter-simple.tsx";
 import ConverterDirect from "./routes/converter-direct.tsx";
 import ConverterReal from "./routes/converter-real.tsx";
+import ConverterAI from "./routes/converter-ai.tsx";
 import { Toaster } from "sonner";
 
 import "./styles.css";
@@ -41,12 +42,20 @@ const converterRealRoute = createRoute({
   component: ConverterReal,
 });
 
+// Criar rota AI
+const converterAIRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/ai",
+  component: ConverterAI,
+});
+
 const routeTree = rootRoute.addChildren([
   HomePage(rootRoute),
   ConverterPage(rootRoute),
   converterSimpleRoute,
   converterDirectRoute,
   converterRealRoute,
+  converterAIRoute,
 ]);
 
 const queryClient = new QueryClient();

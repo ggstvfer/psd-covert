@@ -30,15 +30,27 @@ function HomePage() {
               Transforme seus designs em código
             </h2>
             <p className="text-blue-100 mb-8 text-lg">
-              Faça upload de um arquivo PSD e obtenha HTML/CSS baseado nas <strong>camadas reais</strong> do arquivo.
-              Conversão verdadeira que preserva estrutura, posicionamento e conteúdo originais.
+              Faça upload de um arquivo PSD e obtenha HTML/CSS gerado por <strong>inteligência artificial</strong>.
+              A IA analisa visualmente seu design e gera código semântico e responsivo baseado no que "vê".
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/real">
+              <Link to="/ai">
                 <Button
                   size="lg"
                   className="bg-white text-blue-600 hover:bg-blue-50 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <FileImage className="w-5 h-5 mr-2" />
+                  🤖 Conversão com IA
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+              
+              <Link to="/real">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-transparent border-white text-white hover:bg-white hover:text-blue-600 font-semibold px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   <FileImage className="w-5 h-5 mr-2" />
                   Conversão REAL

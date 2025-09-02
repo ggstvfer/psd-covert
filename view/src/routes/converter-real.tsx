@@ -226,7 +226,7 @@ export default function ConverterReal() {
     return styles;
   }, []);
 
-  const generateHTMLFromLayers = useCallback((layers: any[], canvasWidth: number, canvasHeight: number) => {
+  const generateHTMLFromLayers = useCallback((layers: any[], canvasWidth: number, canvasHeight: number, compositeImage?: string) => {
     console.log('🏗️ Gerando HTML a partir das camadas reais...');
     
     const generateLayerHTML = (layer: any): string => {
@@ -261,9 +261,25 @@ export default function ConverterReal() {
     // Ordenar camadas por posição Z (layers no topo do PSD aparecem por último)
     const sortedLayers = [...layers].reverse();
     
-    const html = `<div class="psd-canvas">
+    let html = '';
+    
+    // Se temos a imagem composta e poucas layers úteis, usar a imagem como base
+    const hasUsefulLayers = layers.some(layer => layer.text || layer.imageData || (layer.children && layer.children.length > 0));
+    
+    if (compositeImage && (!hasUsefulLayers || layers.length < 3)) {
+      console.log('🖼️ Usando imagem composta como base (poucas layers úteis detectadas)');
+      html = `<div class="psd-canvas psd-composite">
+  <img src="${compositeImage}" alt="PSD Composite" style="width: 100%; height: auto; display: block;">
+  <div class="psd-layers-overlay">
+${sortedLayers.map(layer => generateLayerHTML(layer)).join('\n')}
+  </div>
+</div>`;
+    } else {
+      console.log('🏗️ Usando estrutura de layers');
+      html = `<div class="psd-canvas">
 ${sortedLayers.map(layer => generateLayerHTML(layer)).join('\n')}
 </div>`;
+    }
     
     console.log('✅ HTML gerado com sucesso');
     return html;
@@ -362,6 +378,23 @@ ${sortedLayers.map(layer => generateLayerHTML(layer)).join('\n')}
 
     // CSS responsivo
     css += `/* Responsivo */
+.psd-composite {
+  position: relative;
+}
+
+.psd-layers-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.psd-layers-overlay > * {
+  pointer-events: auto;
+}
+
 @media (max-width: 768px) {
   .psd-canvas {
     transform: scale(0.8);
@@ -397,7 +430,7 @@ ${sortedLayers.map(layer => generateLayerHTML(layer)).join('\n')}
       setConversionProgress(40);
 
       console.log('🏗️ Gerando HTML/CSS baseado nas camadas reais...');
-      const html = generateHTMLFromLayers(psdData.layers, psdData.width, psdData.height);
+      const html = generateHTMLFromLayers(psdData.layers, psdData.width, psdData.height, psdData.compositeImage);
       setConversionProgress(70);
 
       const css = generateCSS(psdData.layers, psdData.width, psdData.height);
