@@ -48,3 +48,5 @@ globs = [ "**/*.sql" ]
 fallthrough = true
 
 [deco]
+workspace = "alfanet"
+bindings = []
