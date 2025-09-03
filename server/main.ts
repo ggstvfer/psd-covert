@@ -104,12 +104,12 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     try {
       let filePath: string;
       let includeImageData = false;
-  const MAX_DIRECT_BYTES = 4 * 1024 * 1024; // keep in sync with similar guard below
+      const MAX_DIRECT_BYTES = 4 * 1024 * 1024; // keep in sync with similar guard below
 
       // Check if request is FormData or JSON
       const contentType = req.headers.get('content-type') || '';
 
-  if (contentType.includes('multipart/form-data')) {
+      if (contentType.includes('multipart/form-data')) {
         // Handle FormData upload
         const formData = await req.formData();
         const file = formData.get('file') as File;
@@ -147,7 +147,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       }
 
       // Hard guard: if base64/data URL size > 4MB or file larger than 4MB via FormData, force chunked path
-  // Guard already defined above; reused here for JSON path
+      // Guard already defined above; reused here for JSON path
       if (filePath.startsWith('data:')) {
         // Estimate length
         const b64 = filePath.split(',')[1] || '';
@@ -166,7 +166,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         }
       } as any);
 
-  return new Response(JSON.stringify(result), { headers: JSON_HEADERS });
+      return new Response(JSON.stringify(result), { headers: JSON_HEADERS });
     } catch (error) {
       return new Response(JSON.stringify({
         success: false,
@@ -270,7 +270,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     const doResp = await stub.fetch(doUrl.toString(), { method: req.method, body, headers: req.headers });
     // Add CORS headers
     const respHeaders = new Headers(doResp.headers);
-    respHeaders.set('Access-Control-Allow-Origin','*');
+    respHeaders.set('Access-Control-Allow-Origin', '*');
     return new Response(doResp.body, { status: doResp.status, headers: respHeaders });
   }
 
@@ -285,7 +285,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     const body = req.method === 'POST' ? await req.text() : undefined;
     const wfResp = await stub.fetch(wfUrl.toString(), { method: req.method, body, headers: req.headers });
     const respHeaders = new Headers(wfResp.headers);
-    respHeaders.set('Access-Control-Allow-Origin','*');
+    respHeaders.set('Access-Control-Allow-Origin', '*');
     return new Response(wfResp.body, { status: wfResp.status, headers: respHeaders });
   }
 
@@ -333,7 +333,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     try {
       const formData = await req.formData();
       const file = formData.get('file') as File;
-      
+
       if (!file) {
         return new Response(JSON.stringify({
           success: false,
@@ -343,52 +343,52 @@ const handleApiRoutes = async (req: Request, env: Env) => {
           headers: JSON_HEADERS
         });
       }
-      
+
       console.log('🔧 Iniciando conversão real do PSD:', file.name);
-      
+
       // Converter File para ArrayBuffer
       const arrayBuffer = await file.arrayBuffer();
       const fileSize = arrayBuffer.byteLength;
-      
+
       // Análise básica do arquivo PSD (sem ag-psd para evitar problemas no Workers)
       const analysis = await analyzePSDFile(arrayBuffer, file.name);
-      
+
       // Gerar HTML e CSS baseados na análise
       const { html, css } = generatePSDLayout(analysis);
-      
+
       let analysisText = `CONVERSÃO REAL DO PSD (${file.name})\n\n`;
       analysisText += `TAMANHO DO ARQUIVO: ${(fileSize / 1024 / 1024).toFixed(2)} MB\n`;
       analysisText += `DIMENSÕES: ${analysis.width}x${analysis.height}px\n\n`;
-      
+
       analysisText += `ELEMENTOS DETECTADOS: ${analysis.elements.length}\n\n`;
-      
+
       const textElements = analysis.elements.filter(el => el.type === 'text');
       const imageElements = analysis.elements.filter(el => el.type === 'image');
       const shapeElements = analysis.elements.filter(el => el.type === 'shape');
-      
+
       analysisText += `📝 TEXTOS: ${textElements.length}\n`;
       textElements.forEach(el => {
         analysisText += `  - "${el.text || el.name}"\n`;
       });
-      
+
       analysisText += `\n🖼️ IMAGENS: ${imageElements.length}\n`;
       imageElements.forEach(el => {
         analysisText += `  - ${el.name} (${el.width}x${el.height}px)\n`;
       });
-      
+
       analysisText += `\n🔷 FORMAS: ${shapeElements.length}\n`;
       shapeElements.forEach(el => {
         analysisText += `  - ${el.name} (${el.width}x${el.height}px)\n`;
       });
-      
+
       analysisText += `\n🎨 CORES ENCONTRADAS: ${analysis.colorPalette.length}\n`;
       analysis.colorPalette.forEach(color => {
         analysisText += `  - ${color}\n`;
       });
-      
+
       analysisText += `\n⚠️ NOTA: Esta é uma análise básica do PSD.\n`;
       analysisText += `Para extração completa de layers, recomenda-se usar ferramentas dedicadas.\n`;
-      
+
       return new Response(JSON.stringify({
         html,
         css,
@@ -411,7 +411,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         status: 200,
         headers: JSON_HEADERS
       });
-      
+
     } catch (error) {
       console.error('❌ Erro na conversão real do PSD:', error);
       return new Response(JSON.stringify({
@@ -429,63 +429,58 @@ const handleApiRoutes = async (req: Request, env: Env) => {
   if (url.pathname === '/api/analyze-design' && req.method === 'POST') {
     try {
       const requestData = await req.json();
-      
+
       console.log('🤖 Recebida solicitação de análise LLM');
-      console.log('📊 Dados recebidos:', { 
-        hasDimensions: !!requestData.dimensions, 
+      console.log('📊 Dados recebidos:', {
+        hasDimensions: !!requestData.dimensions,
         hasImage: !!requestData.image,
         imageLength: requestData.image?.length || 0
       });
-      
+
       const { dimensions, image } = requestData;
-      
+
       // Validar dados recebidos
       if (!dimensions || !dimensions.width || !dimensions.height) {
         throw new Error('Dimensões do PSD não fornecidas');
       }
-      
+
       if (!image || !image.startsWith('data:image/')) {
         throw new Error('Imagem do PSD em formato inválido');
       }
-      
-      // Verificar se temos acesso à Deco AI
-      if (!env.DECO_CHAT_WORKSPACE_API) {
-        console.error('❌ Deco AI não configurada');
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Deco AI não configurada',
-          details: 'Configure o ambiente Deco corretamente'
-        }), {
-          status: 500,
-          headers: JSON_HEADERS
-        });
+
+      // ✅ Usar verificação flexível  
+      let decoApiAvailable = false;
+      try {
+        decoApiAvailable = !!(env.DECO_CHAT_WORKSPACE_API?.AI_GENERATE);
+      } catch (e) {
+        console.warn('⚠️ Deco API não disponível, usando fallback');
       }
-      
+
       let llmResult;
-      
+
       // Usar apenas Deco AI
       console.log('🤖 Usando Deco AI...');
-      
+
       try {
         // Converter imagem base64 para o formato do Claude
         let base64Data = image.split(',')[1]; // Remove "data:image/jpeg;base64,"
         const mimeType = image.split(';')[0].split(':')[1]; // Extrai o tipo MIME
-        
+
         // Verificar tamanho da imagem (Deco AI pode ter limites)
         const imageSizeBytes = Math.floor(base64Data.length * 0.75); // Aproximação do tamanho real
         const maxSizeBytes = 5 * 1024 * 1024; // 5MB limite aproximado
-        
+
         if (imageSizeBytes > maxSizeBytes) {
-          console.log(`📏 Imagem muito grande (${Math.round(imageSizeBytes/1024/1024)}MB), redimensionando...`);
-          
+          console.log(`📏 Imagem muito grande (${Math.round(imageSizeBytes / 1024 / 1024)}MB), redimensionando...`);
+
           // Redimensionar imagem para caber no limite do Claude
           base64Data = await resizeImageBase64(base64Data, mimeType, maxSizeBytes);
           console.log(`✅ Imagem redimensionada para ${Math.round(base64Data.length * 0.75 / 1024 / 1024)}MB`);
         }
-        
+
         // Usar Deco AI através da API do workspace
         console.log('🤖 Usando Deco AI através da API do workspace...');
-        
+
         const prompt = `Analise esta imagem de um PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
                       
                       IMPORTANTE:
@@ -502,7 +497,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
                         "css": "CSS que replica o visual exato",
                         "analysis": "descrição detalhada do que você vê"
                       }`;
-        
+
         // Usar Deco AI através da API do workspace
         const aiResult = await env.DECO_CHAT_WORKSPACE_API.AI_GENERATE({
           messages: [
@@ -521,12 +516,12 @@ const handleApiRoutes = async (req: Request, env: Env) => {
           maxTokens: 4000,
           temperature: 0.1
         });
-        
+
         console.log('📡 Resposta recebida da Deco AI');
-        
+
         const content = aiResult.text || '';
         console.log('📝 Conteúdo da resposta:', content.substring(0, 200) + '...');
-        
+
         // Parse JSON response
         try {
           llmResult = JSON.parse(content);
@@ -539,22 +534,22 @@ const handleApiRoutes = async (req: Request, env: Env) => {
             throw new Error('Resposta da Deco AI não contém JSON válido');
           }
         }
-        
+
         console.log('🎉 Análise Deco AI concluída com sucesso');
-        } catch (decoError) {
-          console.error('❌ Erro na Deco AI:', decoError);
-          throw decoError;
-        }
-      
-      } catch (error) {
+      } catch (decoError) {
+        console.error('❌ Erro na Deco AI:', decoError);
+        throw decoError;
+      }
+
+    } catch (error) {
       console.error('❌ Erro na análise Deco AI:', error);
-      
+
       // Se há erro na API, usar fallback inteligente  
       const requestData = await req.json().catch(() => ({ dimensions: { width: 800, height: 600 } }));
       const dimensions = requestData.dimensions || { width: 800, height: 600 };
-      
+
       console.log('🔄 Usando fallback inteligente devido ao erro na Deco AI');
-      
+
       const fallbackResult = {
         html: `<div class="psd-fallback-container">
   <div class="error-notice">
@@ -583,7 +578,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     </main>
   </div>
 </div>`,
-        
+
         css: `.psd-fallback-container {
   width: ${dimensions.width}px;
   max-width: 100%;
@@ -696,10 +691,10 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     font-size: 2rem;
   }
 }`,
-        
+
         analysis: `Análise Fallback (Deco AI indisponível)\n\nDimensões: ${dimensions.width}x${dimensions.height}px\n\nDevido a um erro na Deco AI, foi gerado um layout fallback baseado nas dimensões do PSD.\n\nPara ativar a análise visual completa:\n1. Verifique se a Deco AI está configurada corretamente\n2. Confirme se há acesso ao workspace Deco\n3. Teste novamente em alguns minutos\n\nEste layout serve como base e pode ser customizado conforme necessário.\n\nErro original: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
       };
-      
+
       return new Response(JSON.stringify(fallbackResult), {
         status: 200,
         headers: JSON_HEADERS
@@ -720,10 +715,10 @@ const runtime = withRuntime<Env, typeof StateSchema>({
   tools: [
     createPsdParserTool,
     createPsdUploadTool,
-  createChunkInitTool,
-  createChunkAppendTool,
-  createChunkCompleteTool,
-  createChunkAbortTool,
+    createChunkInitTool,
+    createChunkAppendTool,
+    createChunkCompleteTool,
+    createChunkAbortTool,
     createPsdToHtmlTool
   ],
   fetch: async (req, env) => {
@@ -767,10 +762,10 @@ interface PSDAnalysis {
 async function analyzePSDFile(arrayBuffer: ArrayBuffer, filename: string): Promise<PSDAnalysis> {
   // Análise básica do header PSD
   const view = new DataView(arrayBuffer);
-  
+
   let width = 800;
   let height = 600;
-  
+
   try {
     // Tentar ler dimensões do header PSD (posições aproximadas)
     if (view.getUint32(0) === 0x38425053) { // "8BPS" - assinatura PSD
@@ -781,10 +776,10 @@ async function analyzePSDFile(arrayBuffer: ArrayBuffer, filename: string): Promi
   } catch (e) {
     console.log('Usando dimensões padrão para análise');
   }
-  
+
   // Gerar elementos baseados no nome do arquivo e tamanho
   const elements = generateMockElements(width, height, filename);
-  
+
   return {
     width,
     height,
@@ -796,7 +791,7 @@ async function analyzePSDFile(arrayBuffer: ArrayBuffer, filename: string): Promi
 
 function generateMockElements(width: number, height: number, filename: string): Array<any> {
   const elements = [];
-  
+
   // Elemento de título baseado no nome do arquivo
   elements.push({
     type: 'text',
@@ -808,7 +803,7 @@ function generateMockElements(width: number, height: number, filename: string): 
     visible: true,
     text: filename.replace('.psd', '').replace(/[_-]/g, ' ').toUpperCase()
   });
-  
+
   // Elemento de imagem central
   elements.push({
     type: 'image',
@@ -819,7 +814,7 @@ function generateMockElements(width: number, height: number, filename: string): 
     height: Math.round(height * 0.4),
     visible: true
   });
-  
+
   // Elementos de forma
   elements.push({
     type: 'shape',
@@ -830,7 +825,7 @@ function generateMockElements(width: number, height: number, filename: string): 
     height: height,
     visible: true
   });
-  
+
   return elements;
 }
 
@@ -846,11 +841,11 @@ function generatePSDLayout(analysis: PSDAnalysis): { html: string; css: string }
     </div>
     
     <div class="psd-elements">
-      ${analysis.elements.map(el => 
-        el.type === 'text' ? `<p class="psd-text-element">${el.text || el.name}</p>` :
-        el.type === 'image' ? `<div class="psd-image-element">[Imagem: ${el.name}]</div>` :
+      ${analysis.elements.map(el =>
+    el.type === 'text' ? `<p class="psd-text-element">${el.text || el.name}</p>` :
+      el.type === 'image' ? `<div class="psd-image-element">[Imagem: ${el.name}]</div>` :
         `<div class="psd-shape-element">[Forma: ${el.name}]</div>`
-      ).join('\n      ')}
+  ).join('\n      ')}
     </div>
   </div>
   
@@ -1006,22 +1001,22 @@ async function resizeImageBase64(base64Data: string, mimeType: string, maxSizeBy
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    
+
     // Calcular fator de redução (aproximação simples)
     const currentSize = bytes.length;
     const compressionRatio = Math.sqrt(maxSizeBytes * 0.8 / currentSize); // 80% do limite para margem de segurança
-    
+
     if (compressionRatio >= 1) {
       return base64Data; // Já está dentro do limite
     }
-    
+
     // Como não temos canvas no Workers, vamos simplesmente reduzir a qualidade
     // cortando dados da imagem de forma controlada (método simples)
     const targetLength = Math.floor(base64Data.length * compressionRatio);
     const reducedBase64 = base64Data.substring(0, targetLength);
-    
-    console.log(`📏 Reduzido de ${Math.round(currentSize/1024/1024)}MB para ~${Math.round(targetLength * 0.75 / 1024 / 1024)}MB`);
-    
+
+    console.log(`📏 Reduzido de ${Math.round(currentSize / 1024 / 1024)}MB para ~${Math.round(targetLength * 0.75 / 1024 / 1024)}MB`);
+
     return reducedBase64;
   } catch (error) {
     console.error('❌ Erro ao redimensionar imagem:', error);
