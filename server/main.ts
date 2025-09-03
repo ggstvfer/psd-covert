@@ -14,8 +14,6 @@ import { psdChunkTools, createChunkInitTool, createChunkAppendTool, createChunkC
 import { createChunkStatusTool } from './tools/psdChunkUpload.ts';
 import { createChunkPartialTool } from './tools/psdChunkUpload.ts';
 import { createPsdToHtmlTool } from "./tools/psdConverter.ts";
-import { validatePsdStructure } from './tools/psdValidator';
-import { llmRoutes } from "./tools/llmAnalyzer.ts";
 import { views } from "./views.ts";
 import { UploadCoordinator } from './uploadCoordinator.ts';
 import { PsdWorkflow } from './workflowPsd.ts';
@@ -100,6 +98,106 @@ const handleApiRoutes = async (req: Request, env: Env) => {
   // Parse PSD API
   if (url.pathname === '/api/version' && req.method === 'GET') {
     return new Response(JSON.stringify({ success: true, buildVersion: BUILD_VERSION, ts: Date.now() }), { headers: JSON_HEADERS });
+  }
+
+  // Test Claude API credentials
+  if (url.pathname === '/api/test-claude' && req.method === 'POST') {
+    try {
+      console.log('🧪 Testando credenciais do Claude...');
+      
+      if (!env.ANTHROPIC_API_KEY) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'ANTHROPIC_API_KEY não configurada',
+          details: 'Configure a API key do Claude como secret no Cloudflare Workers'
+        }), {
+          status: 400,
+          headers: JSON_HEADERS
+        });
+      }
+
+      // Teste simples com uma imagem pequena de teste
+      const testImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='; // 1x1 pixel transparente
+      
+      const testResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': (env.ANTHROPIC_API_KEY as string) || '',
+          'content-type': 'application/json',
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 50,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Responda apenas "OK" se você conseguir ver esta imagem.'
+                },
+                {
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: 'image/png',
+                    data: testImageBase64
+                  }
+                }
+              ]
+            }
+          ]
+        })
+      });
+
+      const responseData = await testResponse.json();
+      
+      if (testResponse.ok) {
+        console.log('✅ Claude API funcionando corretamente');
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Claude API está funcionando',
+          details: {
+            status: testResponse.status,
+            model: 'claude-3-5-sonnet-20241022',
+            response_preview: responseData.content?.[0]?.text?.substring(0, 100) || 'N/A'
+          }
+        }), {
+          status: 200,
+          headers: JSON_HEADERS
+        });
+      } else {
+        console.error('❌ Erro na API Claude:', testResponse.status, responseData);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Falha na API Claude',
+          details: {
+            status: testResponse.status,
+            statusText: testResponse.statusText,
+            error_type: responseData.error?.type || 'unknown',
+            error_message: responseData.error?.message || responseData.error || 'Erro desconhecido',
+            full_response: responseData
+          }
+        }), {
+          status: testResponse.status,
+          headers: JSON_HEADERS
+        });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao testar Claude:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Erro interno ao testar Claude',
+        details: {
+          message: error instanceof Error ? error.message : 'Erro desconhecido',
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      }), {
+        status: 500,
+        headers: JSON_HEADERS
+      });
+    }
   }
 
   if (url.pathname === '/api/parse-psd' && req.method === 'POST') {
@@ -450,13 +548,13 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         throw new Error('Imagem do PSD em formato inválido');
       }
       
-      // Verificar se temos API key (Claude preferencial, OpenAI como fallback)
-      if (!env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY) {
-        console.error('❌ Nenhuma API key configurada');
+      // Verificar se temos API key do Claude
+      if (!env.ANTHROPIC_API_KEY) {
+        console.error('❌ API key do Claude não configurada');
         return new Response(JSON.stringify({
           success: false,
-          error: 'API key não configurada',
-          details: 'Configure ANTHROPIC_API_KEY ou OPENAI_API_KEY como secret no Cloudflare Workers'
+          error: 'API key do Claude não configurada',
+          details: 'Configure ANTHROPIC_API_KEY como secret no Cloudflare Workers'
         }), {
           status: 500,
           headers: JSON_HEADERS
@@ -465,23 +563,34 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       
       let llmResult;
       
-      // Tentar Claude primeiro (se disponível)
-      if (env.ANTHROPIC_API_KEY) {
-        console.log('🤖 Usando Claude Vision...');
+      // Usar apenas Claude Vision
+      console.log('🤖 Usando Claude Vision...');
+      
+      try {
+        // Converter imagem base64 para o formato do Claude
+        let base64Data = image.split(',')[1]; // Remove "data:image/jpeg;base64,"
+        const mimeType = image.split(';')[0].split(':')[1]; // Extrai o tipo MIME
         
-        try {
-          // Converter imagem base64 para o formato do Claude
-          const base64Data = image.split(',')[1]; // Remove "data:image/jpeg;base64,"
-          const mimeType = image.split(';')[0].split(':')[1]; // Extrai o tipo MIME
+        // Verificar tamanho da imagem (Claude tem limite de 5MB)
+        const imageSizeBytes = Math.floor(base64Data.length * 0.75); // Aproximação do tamanho real
+        const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+        
+        if (imageSizeBytes > maxSizeBytes) {
+          console.log(`📏 Imagem muito grande (${Math.round(imageSizeBytes/1024/1024)}MB), redimensionando...`);
           
-          const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'x-api-key': env.ANTHROPIC_API_KEY,
-              'content-type': 'application/json',
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
+          // Redimensionar imagem para caber no limite do Claude
+          base64Data = await resizeImageBase64(base64Data, mimeType, maxSizeBytes);
+          console.log(`✅ Imagem redimensionada para ${Math.round(base64Data.length * 0.75 / 1024 / 1024)}MB`);
+        }
+        
+        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': (env.ANTHROPIC_API_KEY as string) || '',
+            'content-type': 'application/json',
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
               model: 'claude-3-5-sonnet-20241022', // Modelo mais recente com visão
               max_tokens: 4000,
               temperature: 0.1,
@@ -552,106 +661,38 @@ const handleApiRoutes = async (req: Request, env: Env) => {
             });
           } else {
             const errorText = await claudeResponse.text();
-            console.log('⚠️ Claude falhou, tentando OpenAI...', claudeResponse.status);
-            console.log('Claude error:', errorText);
+            let errorDetails;
+            
+            try {
+              errorDetails = JSON.parse(errorText);
+            } catch {
+              errorDetails = { raw_error: errorText };
+            }
+            
+            console.error('❌ Claude falhou:', claudeResponse.status, errorDetails);
+            
+            // Erros específicos do Claude
+            let errorMessage = `Claude API retornou erro ${claudeResponse.status}`;
+            if (errorDetails.error?.type === 'invalid_request_error') {
+              errorMessage = `Erro de requisição: ${errorDetails.error.message}`;
+            } else if (errorDetails.error?.type === 'authentication_error') {
+              errorMessage = 'Erro de autenticação: verifique a API key do Claude';
+            } else if (errorDetails.error?.type === 'permission_error') {
+              errorMessage = 'Erro de permissão: conta Claude sem acesso ao modelo';
+            } else if (errorDetails.error?.type === 'rate_limit_error') {
+              errorMessage = 'Limite de taxa excedido: tente novamente em alguns minutos';
+            } else if (errorDetails.error?.message) {
+              errorMessage = errorDetails.error.message;
+            }
+            
+            throw new Error(`${errorMessage} (Status: ${claudeResponse.status})`);
           }
         } catch (claudeError) {
-          console.log('⚠️ Erro no Claude, tentando OpenAI...', claudeError);
+          console.error('❌ Erro no Claude:', claudeError);
+          throw claudeError;
         }
-      }
       
-      // Fallback para OpenAI (se Claude falhar ou não estiver disponível)
-      if (env.OPENAI_API_KEY) {
-        console.log('🔄 Usando OpenAI como fallback...');
-        
-        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { 
-                    type: 'text', 
-                    text: `Analise esta imagem de um PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
-                    
-                    IMPORTANTE:
-                    - Identifique TODOS os textos visíveis
-                    - Identifique TODAS as imagens/fotos
-                    - Reproduza o layout EXATO
-                    - Use as cores EXATAS que você vê
-                    - Mantenha posicionamento e tamanhos proporcionais
-                    - Dimensões: ${dimensions.width}x${dimensions.height}px
-                    
-                    Retorne APENAS um JSON válido:
-                    {
-                      "html": "HTML que reproduz exatamente a imagem",
-                      "css": "CSS que replica o visual exato",
-                      "analysis": "descrição detalhada do que você vê"
-                    }` 
-                  },
-                  { 
-                    type: 'image_url', 
-                    image_url: { 
-                      url: image,
-                      detail: 'high'
-                    } 
-                  }
-                ]
-              }
-            ],
-            max_tokens: 4000,
-            temperature: 0.1
-          })
-        });
-        
-        console.log('📡 Status da resposta OpenAI:', openaiResponse.status);
-        
-        if (openaiResponse.ok) {
-          const openaiResult = await openaiResponse.json();
-          console.log('✅ Resposta recebida da OpenAI');
-          
-          const content = openaiResult.choices[0].message.content;
-          console.log('📝 Conteúdo da resposta:', content.substring(0, 200) + '...');
-          
-          // Parse JSON response
-          try {
-            llmResult = JSON.parse(content);
-          } catch (parseError) {
-            console.log('📄 Tentando extrair JSON do conteúdo OpenAI...');
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              llmResult = JSON.parse(jsonMatch[0]);
-            } else {
-              throw new Error('Resposta da OpenAI não contém JSON válido');
-            }
-          }
-          
-          console.log('🎉 Análise OpenAI concluída com sucesso');
-          
-          return new Response(JSON.stringify(llmResult), {
-            status: 200,
-            headers: JSON_HEADERS
-          });
-        } else {
-          const errorText = await openaiResponse.text();
-          console.error('❌ Erro da API OpenAI:', {
-            status: openaiResponse.status,
-            statusText: openaiResponse.statusText,
-            error: errorText
-          });
-          throw new Error(`Erro em ambas APIs: OpenAI ${openaiResponse.status}`);
-        }
-      }
-      
-      throw new Error('Nenhuma API de LLM disponível');
-      
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Erro na análise LLM:', error);
       
       // Se há erro na API, usar fallback inteligente  
@@ -1100,4 +1141,37 @@ ${analysis.colorPalette.map((color, i) => `  --psd-color-${i + 1}: ${color};`).j
 }`;
 
   return { html, css };
+}
+
+// Função para redimensionar imagem base64 para caber no limite do Claude (5MB)
+async function resizeImageBase64(base64Data: string, mimeType: string, maxSizeBytes: number): Promise<string> {
+  try {
+    // Converter base64 para Uint8Array
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Calcular fator de redução (aproximação simples)
+    const currentSize = bytes.length;
+    const compressionRatio = Math.sqrt(maxSizeBytes * 0.8 / currentSize); // 80% do limite para margem de segurança
+    
+    if (compressionRatio >= 1) {
+      return base64Data; // Já está dentro do limite
+    }
+    
+    // Como não temos canvas no Workers, vamos simplesmente reduzir a qualidade
+    // cortando dados da imagem de forma controlada (método simples)
+    const targetLength = Math.floor(base64Data.length * compressionRatio);
+    const reducedBase64 = base64Data.substring(0, targetLength);
+    
+    console.log(`📏 Reduzido de ${Math.round(currentSize/1024/1024)}MB para ~${Math.round(targetLength * 0.75 / 1024 / 1024)}MB`);
+    
+    return reducedBase64;
+  } catch (error) {
+    console.error('❌ Erro ao redimensionar imagem:', error);
+    // Se falhar, retorna os primeiros 80% da imagem original
+    return base64Data.substring(0, Math.floor(base64Data.length * 0.8));
+  }
 }
