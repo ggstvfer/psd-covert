@@ -42,17 +42,9 @@ class_name = "PsdWorkflow"
 binding = "PSD_UPLOADS"
 bucket_name = "psd-uploads"
 
-[build]
-command = "npm run build"  # if you have a build script
-cwd = "."
-watch_dir = "src"
+[[rules]]
+type = "Text"
+globs = [ "**/*.sql" ]
+fallthrough = true
 
-[build.upload]
-format = "modules"
-main = "main.ts"
-dir = "."
-rules = [
-  { type = "Text", globs = ["**/*.sql"], fallthrough = true }
-]
-workspace = "alfanet"
-bindings = []
+[deco]
