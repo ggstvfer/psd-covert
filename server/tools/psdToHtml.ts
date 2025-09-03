@@ -5,7 +5,8 @@
  * extraindo elementos, textos e propriedades verdadeiras.
  */
 
-import { readPsd, Layer } from 'ag-psd';
+import type { Layer } from 'ag-psd';
+// import { readPsd } from 'ag-psd'; // Dynamic import to reduce bundle size
 
 export interface PSDElement {
   type: 'text' | 'image' | 'shape' | 'group';
@@ -48,7 +49,8 @@ export interface PSDAnalysis {
 /**
  * Extrai elementos reais do PSD
  */
-export function extractPSDElements(psdBuffer: ArrayBuffer): PSDAnalysis {
+export async function extractPSDElements(psdBuffer: ArrayBuffer): Promise<PSDAnalysis> {
+  const { readPsd } = await import('ag-psd');
   const psd = readPsd(psdBuffer);
   
   const analysis: PSDAnalysis = {

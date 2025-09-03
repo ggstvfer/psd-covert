@@ -15,8 +15,8 @@ tools:
 
 # Configurações de deploy
 deploy:
-  # Usar wrangler para deploy
-  command: "wrangler deploy"
+  # Usar deco hosting para deploy
+  command: "deco hosting deploy"
 
 # Ambiente de desenvolvimento
 dev:

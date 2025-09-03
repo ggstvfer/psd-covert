@@ -1,4 +1,4 @@
-import { readPsd } from 'ag-psd';
+// import { readPsd } from 'ag-psd'; // Dynamic import to reduce bundle size
 import { parsePSDFromBuffer, lightParsePSD, MAX_FILE_SIZE } from './tools/psdParser.ts';
 // Cloudflare Durable Object types (ambient in workers runtime); declare minimal if not globally available
 // eslint-disable-next-line @typescript-eslint/no-empty-interface

@@ -1,7 +1,7 @@
 import { createTool } from "@deco/workers-runtime/mastra";
 import { z } from "zod";
 import type { Env } from "../main.ts";
-import { readPsd } from "ag-psd";
+// import { readPsd } from "ag-psd"; // Dynamic import to reduce bundle size
 import { psdChunkTools } from './psdChunkUpload.ts';
 import { defaultHybridConfig, detectProcessingStrategy, estimateProcessingTime, isViableForFreeTier } from '../hybrid/hybridConfig.ts';
 
@@ -83,6 +83,7 @@ const MAX_DEPTH = 2;
 
 // Light parse (header + limited layer names) used for multi-phase approach
 export async function lightParsePSD(buffer: Uint8Array): Promise<{ width:number; height:number; layers: any[] }> {
+  const { readPsd } = await import('ag-psd');
   const psd = readPsd(buffer as any, { skipCompositeImageData: true, skipLayerImageData: true } as any);
   const children = (psd.children || []).slice(0, 10).map((l:any)=>({
     name: l.name || 'Layer',
@@ -157,6 +158,7 @@ async function processPsdFile(filePath: string, includeImageData: boolean, exter
     logger.log('🎨 Parsing PSD (ag-psd)');
     let psdData: any;
     try {
+      const { readPsd } = await import('ag-psd');
       // Skip heavy image data unless explicitly requested
       const options = includeImageData ? {} : { skipCompositeImageData: true, skipLayerImageData: true } as any;
       psdData = readPsd(new Uint8Array(buffer), options);
@@ -164,6 +166,7 @@ async function processPsdFile(filePath: string, includeImageData: boolean, exter
       const msg = e instanceof Error ? e.message : String(e);
       if (/Canvas not initialized/i.test(msg)) {
         logger.warn('🖼️ Canvas not available - retrying without image data');
+        const { readPsd } = await import('ag-psd');
         psdData = readPsd(new Uint8Array(buffer), { skipCompositeImageData: true, skipLayerImageData: true });
       } else {
         logger.error('❌ readPsd failed', e);
@@ -213,11 +216,13 @@ export async function parsePSDFromBuffer(buffer: Uint8Array, fileName: string, i
     }
     let psdData: any;
     try {
+      const { readPsd } = await import('ag-psd');
       psdData = readPsd(buffer as any);
     } catch (e: any) {
       const msg = e instanceof Error ? e.message : String(e);
       if (/Canvas not initialized/i.test(msg)) {
         logger.warn('🖼️ Canvas missing in buffer parse - retry without image data');
+        const { readPsd } = await import('ag-psd');
         psdData = readPsd(buffer as any, { skipCompositeImageData: true, skipLayerImageData: true });
       } else {
         throw e;
@@ -299,6 +304,7 @@ export const createPsdParserTool = (env: Env) =>
           try {
             const resp = await fetch(filePath);
             const buf = new Uint8Array(await resp.arrayBuffer());
+            const { readPsd } = await import('ag-psd');
             const psd = readPsd(buf, { skipCompositeImageData: true, skipLayerImageData: true });
             const layers: any[] = [];
             extractLayersFreeTier(psd.children || [], false, MAX_DEPTH, 0, new Set(), layers, start);
@@ -383,6 +389,7 @@ export const createPsdUploadTool = (env: Env) =>
         }
 
         // Parse PSD data
+        const { readPsd } = await import('ag-psd');
         const psdData = readPsd(bytes);
 
         // Extract layer information
@@ -547,6 +554,7 @@ export async function uploadPSDFile(fileData: string, fileName: string): Promise
     }
 
     // Parse PSD data
+    const { readPsd } = await import('ag-psd');
     const psdData = readPsd(bytes);
 
     // Extract layer information
@@ -729,6 +737,7 @@ export const createPsdAnalyzeTool = (env: Env) => createTool({
       if (fileSize > MAX_FILE_SIZE) {
         return { success: false, error: `File too large (${(fileSize/1024/1024).toFixed(1)}MB) limit ${(MAX_FILE_SIZE/1024/1024).toFixed(1)}MB`, limits: { maxFileSize: MAX_FILE_SIZE, maxLayers: MAX_LAYERS, maxDepth: MAX_DEPTH, timeoutMs: PROCESSING_TIMEOUT } };
       }
+      const { readPsd } = await import('ag-psd');
       const psd = readPsd(new Uint8Array(buf));
       const allChildren = psd.children || [];
       const layerCount = allChildren.length;
