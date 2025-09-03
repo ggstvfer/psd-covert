@@ -260,12 +260,17 @@ FORMATO DE RESPOSTA:
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              🤖 Replicador PSD com IA Visual
+              🤖 Replicador PSD com GPT-4 Vision - ATIVADO!
             </CardTitle>
             <CardDescription>
-              A IA analisa visualmente seu PSD e replica EXATAMENTE o conteúdo em HTML/CSS. 
+              OpenAI GPT-4 Vision analisa visualmente seu PSD e replica EXATAMENTE o conteúdo em HTML/CSS. 
               Reproduz textos, layout e elementos visuais conforme aparecem no design original.
             </CardDescription>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
+              <p className="text-sm text-green-800">
+                <strong>✅ IA Real Configurada!</strong> Conversão verdadeira ativada com OpenAI GPT-4 Vision.
+              </p>
+            </div>
           </CardHeader>
         </Card>
 

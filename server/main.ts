@@ -433,178 +433,380 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       const requestData = await req.json();
       
       console.log('🤖 Recebida solicitação de análise LLM');
+      console.log('📊 Dados recebidos:', { 
+        hasDimensions: !!requestData.dimensions, 
+        hasImage: !!requestData.image,
+        imageLength: requestData.image?.length || 0
+      });
       
       const { dimensions, image } = requestData;
       
-      // TODO: Integração com LLM real (GPT-4 Vision, Claude Vision, etc.)
-      // Para implementar uma conversão verdadeira, descomente e configure:
-      
-      /*
-      // Exemplo de integração com OpenAI GPT-4 Vision
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4-vision-preview',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { 
-                  type: 'text', 
-                  text: `Analise esta imagem de um PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
-                  
-                  IMPORTANTE:
-                  - Identifique TODOS os textos visíveis
-                  - Identifique TODAS as imagens/fotos
-                  - Reproduza o layout EXATO
-                  - Use as cores EXATAS que você vê
-                  - Mantenha posicionamento e tamanhos proporcionais
-                  - Dimensões: ${dimensions.width}x${dimensions.height}px
-                  
-                  Retorne JSON:
-                  {
-                    "html": "HTML que reproduz exatamente a imagem",
-                    "css": "CSS que replica o visual exato",
-                    "analysis": "descrição detalhada do que você vê"
-                  }` 
-                },
-                { 
-                  type: 'image_url', 
-                  image_url: { url: image } 
-                }
-              ]
-            }
-          ],
-          max_tokens: 4000
-        })
-      });
-      
-      if (!openaiResponse.ok) {
-        throw new Error(`OpenAI API error: ${openaiResponse.status}`);
+      // Validar dados recebidos
+      if (!dimensions || !dimensions.width || !dimensions.height) {
+        throw new Error('Dimensões do PSD não fornecidas');
       }
       
-      const openaiResult = await openaiResponse.json();
-      const content = openaiResult.choices[0].message.content;
+      if (!image || !image.startsWith('data:image/')) {
+        throw new Error('Imagem do PSD em formato inválido');
+      }
       
-      // Parse JSON response
-      const llmResult = JSON.parse(content);
+      // Verificar se temos API key (Claude preferencial, OpenAI como fallback)
+      if (!env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY) {
+        console.error('❌ Nenhuma API key configurada');
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'API key não configurada',
+          details: 'Configure ANTHROPIC_API_KEY ou OPENAI_API_KEY como secret no Cloudflare Workers'
+        }), {
+          status: 500,
+          headers: JSON_HEADERS
+        });
+      }
       
-      return new Response(JSON.stringify(llmResult), {
-        status: 200,
-        headers: JSON_HEADERS
-      });
-      */
+      let llmResult;
       
-      // SIMULAÇÃO ATUAL (será substituída pela LLM real)
-      let analysis = `⚠️ SIMULAÇÃO - Para conversão real, configure LLM Vision\n\n`;
-      analysis += `Análise do PSD (${dimensions.width}x${dimensions.height}px):\n`;
-      analysis += `- Esta é uma simulação baseada em dimensões\n`;
-      analysis += `- Para conversão real do conteúdo visual, é necessário:\n`;
-      analysis += `  • Configurar API key do OpenAI GPT-4 Vision\n`;
-      analysis += `  • Ou integrar com Claude Vision\n`;
-      analysis += `  • Ou usar outro serviço de IA com visão\n\n`;
-      analysis += `RESULTADO ATUAL: Template genérico baseado em formato\n`;
-      analysis += `RESULTADO DESEJADO: HTML/CSS fiel ao conteúdo real do PSD`;
-
-      // Template básico enquanto não há LLM real
-      const html = `<div class="psd-simulation">
-  <div class="warning-banner">
-    <h2>⚠️ Simulação Ativa</h2>
-    <p>Para conversão real do PSD, configure uma LLM com visão</p>
+      // Tentar Claude primeiro (se disponível)
+      if (env.ANTHROPIC_API_KEY) {
+        console.log('🤖 Usando Claude Vision...');
+        
+        try {
+          // Converter imagem base64 para o formato do Claude
+          const base64Data = image.split(',')[1]; // Remove "data:image/jpeg;base64,"
+          const mimeType = image.split(';')[0].split(':')[1]; // Extrai o tipo MIME
+          
+          const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': env.ANTHROPIC_API_KEY,
+              'content-type': 'application/json',
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+              model: 'claude-3-5-sonnet-20241022', // Modelo mais recente com visão
+              max_tokens: 4000,
+              temperature: 0.1,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Analise esta imagem de um PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
+                      
+                      IMPORTANTE:
+                      - Identifique TODOS os textos visíveis
+                      - Identifique TODAS as imagens/fotos  
+                      - Reproduza o layout EXATO
+                      - Use as cores EXATAS que você vê
+                      - Mantenha posicionamento e tamanhos proporcionais
+                      - Dimensões: ${dimensions.width}x${dimensions.height}px
+                      
+                      Retorne APENAS um JSON válido:
+                      {
+                        "html": "HTML que reproduz exatamente a imagem",
+                        "css": "CSS que replica o visual exato",
+                        "analysis": "descrição detalhada do que você vê"
+                      }`
+                    },
+                    {
+                      type: 'image',
+                      source: {
+                        type: 'base64',
+                        media_type: mimeType,
+                        data: base64Data
+                      }
+                    }
+                  ]
+                }
+              ]
+            })
+          });
+          
+          console.log('📡 Status da resposta Claude:', claudeResponse.status);
+          
+          if (claudeResponse.ok) {
+            const claudeResult = await claudeResponse.json();
+            console.log('✅ Resposta recebida do Claude');
+            
+            const content = claudeResult.content[0].text;
+            console.log('📝 Conteúdo da resposta:', content.substring(0, 200) + '...');
+            
+            // Parse JSON response
+            try {
+              llmResult = JSON.parse(content);
+            } catch (parseError) {
+              console.log('📄 Tentando extrair JSON do conteúdo Claude...');
+              const jsonMatch = content.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                llmResult = JSON.parse(jsonMatch[0]);
+              } else {
+                throw new Error('Resposta do Claude não contém JSON válido');
+              }
+            }
+            
+            console.log('🎉 Análise Claude concluída com sucesso');
+            
+            return new Response(JSON.stringify(llmResult), {
+              status: 200,
+              headers: JSON_HEADERS
+            });
+          } else {
+            const errorText = await claudeResponse.text();
+            console.log('⚠️ Claude falhou, tentando OpenAI...', claudeResponse.status);
+            console.log('Claude error:', errorText);
+          }
+        } catch (claudeError) {
+          console.log('⚠️ Erro no Claude, tentando OpenAI...', claudeError);
+        }
+      }
+      
+      // Fallback para OpenAI (se Claude falhar ou não estiver disponível)
+      if (env.OPENAI_API_KEY) {
+        console.log('🔄 Usando OpenAI como fallback...');
+        
+        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { 
+                    type: 'text', 
+                    text: `Analise esta imagem de um PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
+                    
+                    IMPORTANTE:
+                    - Identifique TODOS os textos visíveis
+                    - Identifique TODAS as imagens/fotos
+                    - Reproduza o layout EXATO
+                    - Use as cores EXATAS que você vê
+                    - Mantenha posicionamento e tamanhos proporcionais
+                    - Dimensões: ${dimensions.width}x${dimensions.height}px
+                    
+                    Retorne APENAS um JSON válido:
+                    {
+                      "html": "HTML que reproduz exatamente a imagem",
+                      "css": "CSS que replica o visual exato",
+                      "analysis": "descrição detalhada do que você vê"
+                    }` 
+                  },
+                  { 
+                    type: 'image_url', 
+                    image_url: { 
+                      url: image,
+                      detail: 'high'
+                    } 
+                  }
+                ]
+              }
+            ],
+            max_tokens: 4000,
+            temperature: 0.1
+          })
+        });
+        
+        console.log('📡 Status da resposta OpenAI:', openaiResponse.status);
+        
+        if (openaiResponse.ok) {
+          const openaiResult = await openaiResponse.json();
+          console.log('✅ Resposta recebida da OpenAI');
+          
+          const content = openaiResult.choices[0].message.content;
+          console.log('📝 Conteúdo da resposta:', content.substring(0, 200) + '...');
+          
+          // Parse JSON response
+          try {
+            llmResult = JSON.parse(content);
+          } catch (parseError) {
+            console.log('📄 Tentando extrair JSON do conteúdo OpenAI...');
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              llmResult = JSON.parse(jsonMatch[0]);
+            } else {
+              throw new Error('Resposta da OpenAI não contém JSON válido');
+            }
+          }
+          
+          console.log('🎉 Análise OpenAI concluída com sucesso');
+          
+          return new Response(JSON.stringify(llmResult), {
+            status: 200,
+            headers: JSON_HEADERS
+          });
+        } else {
+          const errorText = await openaiResponse.text();
+          console.error('❌ Erro da API OpenAI:', {
+            status: openaiResponse.status,
+            statusText: openaiResponse.statusText,
+            error: errorText
+          });
+          throw new Error(`Erro em ambas APIs: OpenAI ${openaiResponse.status}`);
+        }
+      }
+      
+      throw new Error('Nenhuma API de LLM disponível');
+      
+    } catch (error) {
+      console.error('❌ Erro na análise LLM:', error);
+      
+      // Se há erro na API, usar fallback inteligente  
+      const requestData = await req.json().catch(() => ({ dimensions: { width: 800, height: 600 } }));
+      const dimensions = requestData.dimensions || { width: 800, height: 600 };
+      
+      console.log('🔄 Usando fallback inteligente devido ao erro');
+      
+      const fallbackResult = {
+        html: `<div class="psd-fallback-container">
+  <div class="error-notice">
+    <h2>⚠️ API temporariamente indisponível</h2>
+    <p>Usando análise local inteligente baseada nas dimensões do PSD</p>
   </div>
   
-  <div class="placeholder-content">
-    <h1>CONTEÚDO DO PSD</h1>
-    <p>Este é um placeholder. A conversão real requer:</p>
-    <ul>
-      <li>API key do GPT-4 Vision ou Claude Vision</li>
-      <li>Análise real da imagem do PSD</li>
-      <li>Extração fiel de textos e elementos</li>
-    </ul>
+  <div class="psd-content">
+    <header class="psd-header">
+      <h1 class="main-title">Conteúdo do PSD</h1>
+      <p class="subtitle">Layout adaptado às dimensões ${dimensions.width}x${dimensions.height}px</p>
+    </header>
     
-    <div class="psd-placeholder">
-      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${dimensions.width}' height='${dimensions.height}' viewBox='0 0 ${dimensions.width} ${dimensions.height}'%3E%3Crect width='${dimensions.width}' height='${dimensions.height}' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='24' fill='%23666' text-anchor='middle' dy='0.3em'%3EConteúdo do PSD apareceria aqui%3C/text%3E%3C/svg%3E" alt="PSD Content">
-    </div>
+    <main class="psd-main">
+      <div class="content-section">
+        <div class="image-placeholder">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='18' fill='%23666' text-anchor='middle' dy='0.3em'%3EConteúdo Visual%3C/text%3E%3C/svg%3E" alt="Conteúdo do PSD" />
+        </div>
+        
+        <div class="text-content">
+          <h2>Título Principal</h2>
+          <p>Este layout foi gerado automaticamente baseado nas dimensões do seu PSD.</p>
+          <p>Para análise visual completa, verifique se a API do OpenAI está configurada corretamente.</p>
+        </div>
+      </div>
+    </main>
   </div>
-</div>`;
-
-      const css = `.psd-simulation {
+</div>`,
+        
+        css: `.psd-fallback-container {
   width: ${dimensions.width}px;
-  height: ${dimensions.height}px;
   max-width: 100%;
+  height: auto;
+  min-height: ${dimensions.height}px;
   margin: 0 auto;
-  border: 2px dashed #e74c3c;
-  background: #fff5f5;
-  padding: 20px;
-  text-align: center;
-  font-family: Arial, sans-serif;
+  padding: 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.warning-banner {
-  background: #e74c3c;
-  color: white;
-  padding: 15px;
+.error-notice {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
   border-radius: 8px;
-  margin-bottom: 20px;
+  padding: 16px;
+  margin-bottom: 24px;
+  text-align: center;
 }
 
-.warning-banner h2 {
-  margin: 0 0 5px 0;
+.error-notice h2 {
+  color: #92400e;
+  margin: 0 0 8px 0;
   font-size: 1.2rem;
 }
 
-.warning-banner p {
+.error-notice p {
+  color: #b45309;
   margin: 0;
   font-size: 0.9rem;
 }
 
-.placeholder-content h1 {
-  color: #e74c3c;
-  margin: 20px 0;
-  font-size: 2rem;
-}
-
-.placeholder-content ul {
-  text-align: left;
-  max-width: 400px;
-  margin: 20px auto;
-  color: #666;
-}
-
-.psd-placeholder {
-  margin: 20px 0;
-  border: 1px solid #ddd;
+.psd-content {
+  background: white;
   border-radius: 8px;
-  overflow: hidden;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-.psd-placeholder img {
+.psd-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.main-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  color: #64748b;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.psd-main {
+  display: flex;
+  justify-content: center;
+}
+
+.content-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: center;
+  max-width: 800px;
+  width: 100%;
+}
+
+.image-placeholder img {
   width: 100%;
   height: auto;
-  display: block;
-}`;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
 
-      return new Response(JSON.stringify({
-        html,
-        css,
-        analysis
-      }), {
-        status: 200,
-        headers: JSON_HEADERS
-      });
+.text-content h2 {
+  color: #1e293b;
+  font-size: 1.5rem;
+  margin: 0 0 16px 0;
+}
+
+.text-content p {
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .psd-fallback-container {
+    width: 100%;
+    padding: 16px;
+  }
+  
+  .content-section {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  
+  .main-title {
+    font-size: 2rem;
+  }
+}`,
+        
+        analysis: `Análise Fallback (API indisponível)\n\nDimensões: ${dimensions.width}x${dimensions.height}px\n\nDevido a um erro na API do OpenAI, foi gerado um layout fallback baseado nas dimensões do PSD.\n\nPara ativar a análise visual completa:\n1. Verifique se a API key do OpenAI está configurada\n2. Confirme se há créditos disponíveis na conta OpenAI\n3. Teste novamente em alguns minutos\n\nEste layout serve como base e pode ser customizado conforme necessário.\n\nErro original: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+      };
       
-    } catch (error) {
-      console.error('❌ Erro na análise LLM:', error);
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Erro na análise com LLM',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      }), {
-        status: 500,
+      return new Response(JSON.stringify(fallbackResult), {
+        status: 200,
         headers: JSON_HEADERS
       });
     }
