@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "psd-covert": {
+      "type": "http",
+      "url": "https://localhost-d177b508.deco.host/mcp"
+    }
+  }
+}
