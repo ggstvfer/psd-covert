@@ -1,0 +1,29 @@
+# Arquivo de configuração do Deco.chat
+# Este arquivo define as configurações do seu projeto
+
+# Configurações básicas
+name: "psd-covert"
+version: "1.0.0"
+
+# Runtime (Cloudflare Workers)
+runtime: "cloudflare"
+
+# Ferramentas de IA habilitadas
+tools:
+  - AI_GENERATE
+  - AI_GENERATE_OBJECT
+
+# Configurações de deploy
+deploy:
+  # Usar wrangler para deploy
+  command: "wrangler deploy"
+
+# Ambiente de desenvolvimento
+dev:
+  port: 4000
+  host: "localhost"
+
+# Configurações de build
+build:
+  output: "dist"
+  source: "main.ts"
