@@ -14,55 +14,8 @@ export default function ConverterAI() {
   const [error, setError] = useState<string | null>(null);
   const [psdImage, setPsdImage] = useState<string | null>(null);
   const [llmAnalysis, setLlmAnalysis] = useState<string | null>(null);
-  const [isTestingCredentials, setIsTestingCredentials] = useState(false);
-  const [credentialsTest, setCredentialsTest] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Função para testar credenciais do Claude
-  const testClaudeCredentials = useCallback(async () => {
-    setIsTestingCredentials(true);
-    setCredentialsTest(null);
-    setError(null);
-
-    try {
-      console.log('🧪 Testando credenciais do Claude...');
-      
-      const response = await fetch('/api/test-claude', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('✅ Teste de credenciais bem-sucedido:', result);
-        setCredentialsTest({
-          success: true,
-          message: result.message,
-          details: result.details
-        });
-      } else {
-        console.error('❌ Teste de credenciais falhou:', result);
-        setCredentialsTest({
-          success: false,
-          error: result.error,
-          details: result.details
-        });
-      }
-    } catch (error) {
-      console.error('❌ Erro ao testar credenciais:', error);
-      setCredentialsTest({
-        success: false,
-        error: 'Erro de conexão',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
-    } finally {
-      setIsTestingCredentials(false);
-    }
-  }, []);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -353,61 +306,6 @@ FORMATO DE RESPOSTA:
                   </p>
                 </div>
                 <Badge variant="secondary">PSD</Badge>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Test Credentials Button */}
-        <Card>
-          <CardHeader>
-            <CardTitle>🧪 Teste de Credenciais</CardTitle>
-            <CardDescription>
-              Teste se a API do Claude está configurada corretamente
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              onClick={testClaudeCredentials}
-              disabled={isTestingCredentials}
-              variant="outline"
-              className="w-full mb-4"
-            >
-              {isTestingCredentials ? '🔄 Testando...' : '🔑 Testar Claude API'}
-            </Button>
-            
-            {credentialsTest && (
-              <div className={`p-4 rounded-lg ${credentialsTest.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  {credentialsTest.success ? (
-                    <Badge variant="default" className="bg-green-500">✅ Sucesso</Badge>
-                  ) : (
-                    <Badge variant="destructive">❌ Erro</Badge>
-                  )}
-                </div>
-                
-                {credentialsTest.success ? (
-                  <div className="text-sm space-y-1">
-                    <p className="font-medium text-green-800">{credentialsTest.message}</p>
-                    {credentialsTest.details && (
-                      <div className="text-green-700">
-                        <p>Modelo: {credentialsTest.details.model}</p>
-                        <p>Status: {credentialsTest.details.status}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-sm space-y-1">
-                    <p className="font-medium text-red-800">{credentialsTest.error}</p>
-                    {credentialsTest.details && (
-                      <div className="text-red-700">
-                        <p>Status: {credentialsTest.details.status}</p>
-                        <p>Tipo: {credentialsTest.details.error_type}</p>
-                        <p>Mensagem: {credentialsTest.details.error_message}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           </CardContent>
