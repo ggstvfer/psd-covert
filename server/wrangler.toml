@@ -3,9 +3,10 @@ name = "psd-covert"
 main = "main.ts"
 compatibility_date = "2025-06-17"
 compatibility_flags = [ "nodejs_compat" ]
+scope = "alfanet"
 
 [limits]
-cpu_ms = 50000 # increased for heavy PSD parsing (plan permitting)
+cpu_ms = 50000
 memory_mb = 1024
 
 [assets]
@@ -45,3 +46,7 @@ bucket_name = "psd-uploads"
 type = "Text"
 globs = [ "**/*.sql" ]
 fallthrough = true
+
+[deco]
+workspace = "alfanet"
+bindings = []

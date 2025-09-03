@@ -127,7 +127,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: 'claude-3-5-sonnet-20240620',
           max_tokens: 50,
           messages: [
             {
@@ -160,7 +160,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
           message: 'Claude API está funcionando',
           details: {
             status: testResponse.status,
-            model: 'claude-3-5-sonnet-20241022',
+            model: 'claude-3-5-sonnet-20240620',
             response_preview: responseData.content?.[0]?.text?.substring(0, 100) || 'N/A'
           }
         }), {
@@ -186,13 +186,31 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       }
     } catch (error) {
       console.error('❌ Erro ao testar Claude:', error);
+      
+      // Tratamento específico de erros da SDK Anthropic
+      let errorMessage = 'Erro interno ao testar Claude';
+      let errorDetails = {
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        type: 'unknown'
+      };
+      
+      if (error instanceof Error) {
+        if (error.message.includes('model_not_found')) {
+          errorMessage = 'Modelo Claude não encontrado';
+          errorDetails.type = 'model_not_found';
+        } else if (error.message.includes('invalid_api_key')) {
+          errorMessage = 'API key do Claude inválida';
+          errorDetails.type = 'authentication_error';
+        } else if (error.message.includes('rate_limit')) {
+          errorMessage = 'Limite de taxa excedido na API Claude';
+          errorDetails.type = 'rate_limit_error';
+        }
+      }
+      
       return new Response(JSON.stringify({
         success: false,
-        error: 'Erro interno ao testar Claude',
-        details: {
-          message: error instanceof Error ? error.message : 'Erro desconhecido',
-          stack: error instanceof Error ? error.stack : undefined
-        }
+        error: errorMessage,
+        details: errorDetails
       }), {
         status: 500,
         headers: JSON_HEADERS
@@ -548,13 +566,13 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         throw new Error('Imagem do PSD em formato inválido');
       }
       
-      // Verificar se temos API key do Claude
-      if (!env.ANTHROPIC_API_KEY) {
-        console.error('❌ API key do Claude não configurada');
+      // Verificar se temos acesso à Deco AI
+      if (!env.DECO_CHAT_WORKSPACE_API) {
+        console.error('❌ Deco AI não configurada');
         return new Response(JSON.stringify({
           success: false,
-          error: 'API key do Claude não configurada',
-          details: 'Configure ANTHROPIC_API_KEY como secret no Cloudflare Workers'
+          error: 'Deco AI não configurada',
+          details: 'Configure o ambiente Deco corretamente'
         }), {
           status: 500,
           headers: JSON_HEADERS
@@ -563,17 +581,17 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       
       let llmResult;
       
-      // Usar apenas Claude Vision
-      console.log('🤖 Usando Claude Vision...');
+      // Usar apenas Deco AI
+      console.log('🤖 Usando Deco AI...');
       
       try {
         // Converter imagem base64 para o formato do Claude
         let base64Data = image.split(',')[1]; // Remove "data:image/jpeg;base64,"
         const mimeType = image.split(';')[0].split(':')[1]; // Extrai o tipo MIME
         
-        // Verificar tamanho da imagem (Claude tem limite de 5MB)
+        // Verificar tamanho da imagem (Deco AI pode ter limites)
         const imageSizeBytes = Math.floor(base64Data.length * 0.75); // Aproximação do tamanho real
-        const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+        const maxSizeBytes = 5 * 1024 * 1024; // 5MB limite aproximado
         
         if (imageSizeBytes > maxSizeBytes) {
           console.log(`📏 Imagem muito grande (${Math.round(imageSizeBytes/1024/1024)}MB), redimensionando...`);
@@ -583,24 +601,10 @@ const handleApiRoutes = async (req: Request, env: Env) => {
           console.log(`✅ Imagem redimensionada para ${Math.round(base64Data.length * 0.75 / 1024 / 1024)}MB`);
         }
         
-        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': (env.ANTHROPIC_API_KEY as string) || '',
-            'content-type': 'application/json',
-            'anthropic-version': '2023-06-01'
-          },
-          body: JSON.stringify({
-              model: 'claude-3-5-sonnet-20241022', // Modelo mais recente com visão
-              max_tokens: 4000,
-              temperature: 0.1,
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Analise esta imagem de um PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
+        // Usar Deco AI através da API do workspace
+        console.log('🤖 Usando Deco AI através da API do workspace...');
+        
+        const prompt = `Analise esta imagem de um PSD e gere HTML/CSS que REPRODUZA EXATAMENTE o conteúdo visual.
                       
                       IMPORTANTE:
                       - Identifique TODOS os textos visíveis
@@ -615,91 +619,59 @@ const handleApiRoutes = async (req: Request, env: Env) => {
                         "html": "HTML que reproduz exatamente a imagem",
                         "css": "CSS que replica o visual exato",
                         "analysis": "descrição detalhada do que você vê"
-                      }`
-                    },
-                    {
-                      type: 'image',
-                      source: {
-                        type: 'base64',
-                        media_type: mimeType,
-                        data: base64Data
-                      }
-                    }
-                  ]
+                      }`;
+        
+        // Usar Deco AI através da API do workspace
+        const aiResult = await env.DECO_CHAT_WORKSPACE_API.AI_GENERATE({
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+              experimental_attachments: [
+                {
+                  name: 'psd-image',
+                  contentType: mimeType,
+                  url: `data:${mimeType};base64,${base64Data}`
                 }
               ]
-            })
-          });
-          
-          console.log('📡 Status da resposta Claude:', claudeResponse.status);
-          
-          if (claudeResponse.ok) {
-            const claudeResult = await claudeResponse.json();
-            console.log('✅ Resposta recebida do Claude');
-            
-            const content = claudeResult.content[0].text;
-            console.log('📝 Conteúdo da resposta:', content.substring(0, 200) + '...');
-            
-            // Parse JSON response
-            try {
-              llmResult = JSON.parse(content);
-            } catch (parseError) {
-              console.log('📄 Tentando extrair JSON do conteúdo Claude...');
-              const jsonMatch = content.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                llmResult = JSON.parse(jsonMatch[0]);
-              } else {
-                throw new Error('Resposta do Claude não contém JSON válido');
-              }
             }
-            
-            console.log('🎉 Análise Claude concluída com sucesso');
-            
-            return new Response(JSON.stringify(llmResult), {
-              status: 200,
-              headers: JSON_HEADERS
-            });
+          ],
+          maxTokens: 4000,
+          temperature: 0.1
+        });
+        
+        console.log('📡 Resposta recebida da Deco AI');
+        
+        const content = aiResult.text || '';
+        console.log('📝 Conteúdo da resposta:', content.substring(0, 200) + '...');
+        
+        // Parse JSON response
+        try {
+          llmResult = JSON.parse(content);
+        } catch (parseError) {
+          console.log('📄 Tentando extrair JSON do conteúdo Deco AI...');
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            llmResult = JSON.parse(jsonMatch[0]);
           } else {
-            const errorText = await claudeResponse.text();
-            let errorDetails;
-            
-            try {
-              errorDetails = JSON.parse(errorText);
-            } catch {
-              errorDetails = { raw_error: errorText };
-            }
-            
-            console.error('❌ Claude falhou:', claudeResponse.status, errorDetails);
-            
-            // Erros específicos do Claude
-            let errorMessage = `Claude API retornou erro ${claudeResponse.status}`;
-            if (errorDetails.error?.type === 'invalid_request_error') {
-              errorMessage = `Erro de requisição: ${errorDetails.error.message}`;
-            } else if (errorDetails.error?.type === 'authentication_error') {
-              errorMessage = 'Erro de autenticação: verifique a API key do Claude';
-            } else if (errorDetails.error?.type === 'permission_error') {
-              errorMessage = 'Erro de permissão: conta Claude sem acesso ao modelo';
-            } else if (errorDetails.error?.type === 'rate_limit_error') {
-              errorMessage = 'Limite de taxa excedido: tente novamente em alguns minutos';
-            } else if (errorDetails.error?.message) {
-              errorMessage = errorDetails.error.message;
-            }
-            
-            throw new Error(`${errorMessage} (Status: ${claudeResponse.status})`);
+            throw new Error('Resposta da Deco AI não contém JSON válido');
           }
-        } catch (claudeError) {
-          console.error('❌ Erro no Claude:', claudeError);
-          throw claudeError;
+        }
+        
+        console.log('🎉 Análise Deco AI concluída com sucesso');
+        } catch (decoError) {
+          console.error('❌ Erro na Deco AI:', decoError);
+          throw decoError;
         }
       
       } catch (error) {
-      console.error('❌ Erro na análise LLM:', error);
+      console.error('❌ Erro na análise Deco AI:', error);
       
       // Se há erro na API, usar fallback inteligente  
       const requestData = await req.json().catch(() => ({ dimensions: { width: 800, height: 600 } }));
       const dimensions = requestData.dimensions || { width: 800, height: 600 };
       
-      console.log('🔄 Usando fallback inteligente devido ao erro');
+      console.log('🔄 Usando fallback inteligente devido ao erro na Deco AI');
       
       const fallbackResult = {
         html: `<div class="psd-fallback-container">
@@ -723,7 +695,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
         <div class="text-content">
           <h2>Título Principal</h2>
           <p>Este layout foi gerado automaticamente baseado nas dimensões do seu PSD.</p>
-          <p>Para análise visual completa, verifique se a API do OpenAI está configurada corretamente.</p>
+          <p>Para análise visual completa, verifique se a Deco AI está configurada corretamente.</p>
         </div>
       </div>
     </main>
@@ -843,7 +815,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
   }
 }`,
         
-        analysis: `Análise Fallback (API indisponível)\n\nDimensões: ${dimensions.width}x${dimensions.height}px\n\nDevido a um erro na API do OpenAI, foi gerado um layout fallback baseado nas dimensões do PSD.\n\nPara ativar a análise visual completa:\n1. Verifique se a API key do OpenAI está configurada\n2. Confirme se há créditos disponíveis na conta OpenAI\n3. Teste novamente em alguns minutos\n\nEste layout serve como base e pode ser customizado conforme necessário.\n\nErro original: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+        analysis: `Análise Fallback (Deco AI indisponível)\n\nDimensões: ${dimensions.width}x${dimensions.height}px\n\nDevido a um erro na Deco AI, foi gerado um layout fallback baseado nas dimensões do PSD.\n\nPara ativar a análise visual completa:\n1. Verifique se a Deco AI está configurada corretamente\n2. Confirme se há acesso ao workspace Deco\n3. Teste novamente em alguns minutos\n\nEste layout serve como base e pode ser customizado conforme necessário.\n\nErro original: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
       };
       
       return new Response(JSON.stringify(fallbackResult), {
