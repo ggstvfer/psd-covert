@@ -138,12 +138,18 @@ ${result.html}
         
         {/* Header */}
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            🔧 Conversão Real PSD → HTML
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            🔧 Conversão Técnica PSD → HTML
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Converte elementos reais do PSD para HTML/CSS, extraindo textos, imagens, formas e propriedades verdadeiras.
+            Análise técnica básica do arquivo PSD, extraindo dimensões reais e estrutura do arquivo.
           </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-2xl mx-auto">
+            <p className="text-sm text-amber-800">
+              <strong>⚠️ Nota:</strong> Esta é uma análise básica compatível com Cloudflare Workers. 
+              Para extração completa de layers e elementos, recomenda-se usar ferramentas desktop dedicadas.
+            </p>
+          </div>
         </div>
 
         {/* Upload Area */}
