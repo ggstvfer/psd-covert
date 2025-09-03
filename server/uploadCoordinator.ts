@@ -166,7 +166,7 @@ export class UploadCoordinator {
       await this.state.storage.put('meta', this.meta);
       return { success:true, data: result.data, metrics, fallbackNoCanvas };
     }
-    return { success:false, error: result.error, metrics, fallbackNoCanvas };
+    return { success:false, error: (result as any).error, metrics, fallbackNoCanvas };
   }
 
   async abort(): Promise<any> {

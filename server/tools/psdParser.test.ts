@@ -36,7 +36,7 @@ export async function testPSDParser() {
         });
       }
     } else {
-      console.error("❌ PSD parsing failed:", result.error);
+      console.error("❌ PSD parsing failed:", result.success === false ? result.error : "Unknown error");
     }
 
   } catch (error) {

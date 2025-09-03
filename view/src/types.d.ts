@@ -114,3 +114,14 @@ declare module '@/components/ui/tabs' {
   export const TabsList: (props: ComponentProps<'div'>) => JSX.Element;
   export const TabsTrigger: (props: ComponentProps<'button'> & { value: string }) => JSX.Element;
 }
+
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_API_URL: string;
+  // add more env variables as needed
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

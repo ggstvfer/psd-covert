@@ -293,7 +293,7 @@ export const createPsdParserTool = (env: Env) =>
       try {
         logger.log(`🚀 Start PARSE_PSD_FILE: ${filePath} (build=${BUILD_VERSION})`);
         let result = await Promise.race([ processPsdFile(filePath, includeImageData, start), timeoutPromise ]);
-        if (!result.success && /Canvas not initialized/i.test(result.error)) {
+        if (!result.success && /Canvas not initialized/i.test((result as any).error)) {
           // Fallback manual adicional (caso parse principal não tenha aplicado)
           logger.warn('🧪 Manual canvas fallback (PARSE_PSD_FILE)');
           try {
@@ -313,7 +313,7 @@ export const createPsdParserTool = (env: Env) =>
         if (result.success) {
           return { success: true, data: result.data };
         }
-        return { success: false, error: result.error };
+        return { success: false, error: (result as any).error };
       } catch (error) {
         const { message } = classifyError(error);
         logger.error('❌ Failed', message);

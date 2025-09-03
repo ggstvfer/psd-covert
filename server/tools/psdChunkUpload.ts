@@ -121,7 +121,7 @@ export const createChunkCompleteTool = (env: Env) => createTool({
   const startParse = Date.now();
       let result = await parsePSDFromBuffer(total, state.fileName);
       // Defensive extra fallback if production worker still has old parser (canvas error not handled)
-      if (!result.success && /Canvas not initialized/i.test(result.error || '')) {
+      if (!result.success && /Canvas not initialized/i.test((result as any).error || '')) {
         try {
           // Try manual fallback parse (skip image data)
           const { readPsd } = await import('ag-psd');
@@ -150,7 +150,7 @@ export const createChunkCompleteTool = (env: Env) => createTool({
       const totalSessionMs = Date.now() - state.startedAt;
       const fallbackNoCanvas = !!(result.success && (result as any).data?.metadata?.fallbackNoCanvas);
       const metrics = { totalSize: total.byteLength, chunkCount: state.chunkCount, avgChunk: state.chunkCount ? Math.round(total.byteLength / state.chunkCount) : total.byteLength, durationMs, parseMs: durationMs, totalSessionMs };
-      return result.success ? { success: true, data: result.data, metrics, fallbackNoCanvas } : { success: false, error: result.error, metrics, fallbackNoCanvas };
+      return result.success ? { success: true, data: result.data, metrics, fallbackNoCanvas } : { success: false, error: (result as any).error, metrics, fallbackNoCanvas };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Completion error' };
     }

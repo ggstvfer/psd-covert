@@ -64,6 +64,7 @@
     "node_modules",
     "**/dist",
     "**/build",
-    "**/.wrangler"
+    "**/.wrangler",
+    "node_modules/@deco/workers-runtime/src/**/*"
   ]
 }
