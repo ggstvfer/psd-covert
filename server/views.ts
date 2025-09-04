@@ -11,10 +11,4 @@ import { Env } from "./main.ts";
 import type { CreateMCPServerOptions } from "@deco/workers-runtime/mastra";
 
 export const views: CreateMCPServerOptions<Env, typeof StateSchema>["views"] =
-  () => [
-    // {
-    //     title: "My View",
-    //     icon: "mode_cool", // Available icons: https://fonts.google.com/icons?selected=Material+Icons
-    //     url: "https://my-view.deco.page",
-    // },
-  ];
+  () => [];

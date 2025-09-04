@@ -9,10 +9,10 @@ import { type Env as DecoEnv, StateSchema } from "./deco.gen.ts";
 
 import { workflows } from "./workflows/index.ts";
 import { createPsdParserTool, createPsdUploadTool } from "./tools/psdParser.ts";
-import { BUILD_VERSION } from './tools/psdParser.ts';
-import { psdChunkTools, createChunkInitTool, createChunkAppendTool, createChunkCompleteTool, createChunkAbortTool } from './tools/psdChunkUpload.ts';
-import { createChunkStatusTool } from './tools/psdChunkUpload.ts';
-import { createChunkPartialTool } from './tools/psdChunkUpload.ts';
+// import { BUILD_VERSION } from './tools/psdParser.ts';
+// import { psdChunkTools, createChunkInitTool, createChunkAppendTool, createChunkCompleteTool, createChunkAbortTool } from './tools/psdChunkUpload.ts';
+// import { createChunkStatusTool } from './tools/psdChunkUpload.ts';
+// import { createChunkPartialTool } from './tools/psdChunkUpload.ts';
 import { createPsdToHtmlTool } from "./tools/psdConverter.ts";
 import { views } from "./views.ts";
 import { UploadCoordinator } from './uploadCoordinator.ts';
@@ -97,7 +97,24 @@ const handleApiRoutes = async (req: Request, env: Env) => {
 
   // Parse PSD API
   if (url.pathname === '/api/version' && req.method === 'GET') {
-    return new Response(JSON.stringify({ success: true, buildVersion: BUILD_VERSION, ts: Date.now() }), { headers: JSON_HEADERS });
+    return new Response(JSON.stringify({ success: true, buildVersion: new Date().toISOString(), ts: Date.now() }), { headers: JSON_HEADERS });
+  }
+
+  // Test Deco AI endpoint
+  if (url.pathname === '/api/test-deco-ai' && req.method === 'GET') {
+    try {
+      const { testDecoAI } = await import('./test-deco-ai.ts');
+      const result = await testDecoAI(env);
+      return new Response(JSON.stringify(result), { headers: JSON_HEADERS });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: JSON_HEADERS
+      });
+    }
   }
 
   if (url.pathname === '/api/parse-psd' && req.method === 'POST') {
@@ -209,7 +226,8 @@ const handleApiRoutes = async (req: Request, env: Env) => {
     }
   }
 
-  // Chunked upload APIs
+  // Chunked upload APIs - commented out to reduce bundle size
+  /*
   if (url.pathname.startsWith('/api/psd-chunks/')) {
     const JSON_HEADERS = {
       'Content-Type': 'application/json',
@@ -257,6 +275,7 @@ const handleApiRoutes = async (req: Request, env: Env) => {
       return new Response(JSON.stringify({ success: false, error: e instanceof Error ? e.message : 'Unknown error' }), { status: 500, headers: JSON_HEADERS });
     }
   }
+  */
 
   // Durable Object based upload (experimental)
   if (url.pathname.startsWith('/api/do-upload/')) {
@@ -499,6 +518,9 @@ const handleApiRoutes = async (req: Request, env: Env) => {
                       }`;
 
         // Usar Deco AI através da API do workspace
+        if (!decoApiAvailable) {
+          throw new Error('Deco AI não está disponível neste ambiente');
+        }
         const aiResult = await env.DECO_CHAT_WORKSPACE_API.AI_GENERATE({
           messages: [
             {
@@ -715,10 +737,10 @@ const runtime = withRuntime<Env, typeof StateSchema>({
   tools: [
     createPsdParserTool,
     createPsdUploadTool,
-    createChunkInitTool,
-    createChunkAppendTool,
-    createChunkCompleteTool,
-    createChunkAbortTool,
+    // createChunkInitTool,
+    // createChunkAppendTool,
+    // createChunkCompleteTool,
+    // createChunkAbortTool,
     createPsdToHtmlTool
   ],
   fetch: async (req, env) => {

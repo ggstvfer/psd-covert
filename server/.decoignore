@@ -1,0 +1,22 @@
+# Ignorar arquivos temporários e de build
+deploy-manifest.json
+.wrangler/
+dist/
+node_modules/
+.git/
+*.log
+.DS_Store
+Thumbs.db
+
+# Ignorar arquivos de configuração local
+.env
+.env.local
+.cursor/
+.vscode/
+.deco/
+
+# Ignorar arquivos de teste
+*.test.ts
+*.test.js
+test-*.js
+test-*.ts

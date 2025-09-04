@@ -17,6 +17,10 @@ tools:
 deploy:
   # Usar deco hosting para deploy
   command: "deco hosting deploy"
+  # Configurações específicas para hosting
+  hosting:
+    enabled: true
+    environment: "production"
 
 # Ambiente de desenvolvimento
 dev:
@@ -27,3 +31,4 @@ dev:
 build:
   output: "dist"
   source: "main.ts"
+  format: "modules"
